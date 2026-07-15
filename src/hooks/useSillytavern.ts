@@ -435,6 +435,7 @@ export function useSillytavern() {
               const result = applyVarCommands(nextVariables, secondaryVars, defsMap);
               nextVariables = result.variables;
               apiUsed = 'secondary';
+              secondaryVars = result.applied;
               // Update snapshot with merged result
               snapshot = JSON.parse(JSON.stringify(nextVariables));
             }
@@ -455,6 +456,7 @@ export function useSillytavern() {
         parsed,
         variablesAfter: snapshot,
         apiUsed,
+        variablesDelta: secondaryVars.length > 0 ? secondaryVars : undefined,
       };
       const finalChat: ChatSession = {
         ...updatedChat,

@@ -262,6 +262,7 @@ export interface ChatMessage {
   };
   parsed?: ParsedTags;
   variablesAfter?: Record<string, any>;
+  variablesDelta?: Array<{ op: string; path: string; value?: any; display?: string; reason?: string }>;
   apiUsed?: ApiTarget;
 }
 

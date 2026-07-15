@@ -98,6 +98,7 @@ export default function CenterPanel({ isInGame, actionLog, onClearActionLog }: C
     const rawMaintext = isUser ? msg.content : (msg.parsed?.maintext || msg.content);
     const options = msg.parsed?.options ?? [];
     const thinking = msg.parsed?.thinking ?? '';
+    const deltas: Array<{path: string; display?: string; reason?: string; op: string}> = (msg as any).variablesDelta || [];
 
     // Strip UpdateVariable block from display
     const cleanText = stripUpdateVariable(rawMaintext);
@@ -144,6 +145,20 @@ export default function CenterPanel({ isInGame, actionLog, onClearActionLog }: C
                   </button>
                 ))}
               </div>
+            )}
+            {deltas.length > 0 && (
+              <details className="cp-deltas">
+                <summary className="cp-deltas-summary">📊 变量变化 ({deltas.length})</summary>
+                <div className="cp-deltas-list">
+                  {deltas.map((d: any, i: number) => (
+                    <div key={i} className={`cp-delta cp-delta--${d.op === 'add' ? 'up' : d.op === 'sub' ? 'down' : 'set'}`}>
+                      <span className="cp-delta-icon">{d.op === 'add' ? '↑' : d.op === 'sub' ? '↓' : '→'}</span>
+                      <span className="cp-delta-path">{d.path}</span>
+                      <span className="cp-delta-display">{d.display || String(d.value)}</span>
+                    </div>
+                  ))}
+                </div>
+              </details>
             )}
           </>
         )}
