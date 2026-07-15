@@ -1,19 +1,19 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import type { ActionEntry } from '../../App';
 import { useToast } from '../ui/ToastProvider';
+import { useSillytavern } from '../../hooks/useSillytavern';
+import { runMacroPipeline } from '../../sillytavern/variable-macros';
+import { buildDefsMap } from '../../sillytavern/variable-engine';
+import { getVariableManager } from '../../sillytavern/database';
+import type { VarDefinition } from '../../sillytavern/variable-types';
 import './CenterPanel.css';
 
-/* Mock story content for prototyping */
+/* Mock story for initial empty state */
 const MOCK_STORY: Array<{ type: 'narration' | 'dialogue' | 'action' | 'system'; speaker?: string; text: string }> = [
   { type: 'narration', text: '昆仑墟第三层，云顶剑阁。' },
   { type: 'narration', text: '晨雾如纱，缠绕在万仞绝壁之间。剑阁的青石广场上，数十名弟子正在演练剑招，剑气破空之声不绝于耳。' },
   { type: 'dialogue', speaker: '掌剑长老·玄矶子', text: '「夜煞，你的剑意已到了瓶颈。再这般苦练，也是事倍功半。」' },
   { type: 'narration', text: '玄矶子负手立于你面前，白须在晨风中微微飘动。他的目光穿透力极强，仿佛能看穿你体内每一缕灵力的流转。' },
-  { type: 'system', text: '【系统提示】玄矶子向你发起了「剑心试炼」任务。' },
-  { type: 'action', text: '你收起霜月剑，剑身入鞘时发出一声清越的嗡鸣。' },
-  { type: 'dialogue', speaker: '你', text: '「请教师尊，如何突破？」' },
-  { type: 'dialogue', speaker: '掌剑长老·玄矶子', text: '「下山。去人间走一遭。真正的剑意，不在山巅，在红尘。」' },
-  { type: 'narration', text: '他的话音落下时，你注意到广场边缘的石碑上，那行刻字似乎比昨日更加鲜红了一些——「两界之壁，日渐薄弱」。' },
 ];
 
 interface CenterPanelProps {
@@ -24,36 +24,63 @@ interface CenterPanelProps {
 
 export default function CenterPanel({ isInGame, actionLog, onClearActionLog }: CenterPanelProps) {
   const [input, setInput] = useState('');
-  const [injectionPreview, setInjectionPreview] = useState<string | null>(null);
   const storyEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const { addToast } = useToast();
+  const [defsMap, setDefsMap] = useState<Map<string, VarDefinition>>(new Map());
 
+  // Tavern hook
+  const st = useSillytavern();
+
+  // Load variable definitions for macro display
   useEffect(() => {
-    storyEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    getVariableManager().then(m => {
+      if (m) setDefsMap(buildDefsMap(m));
+    });
   }, []);
 
-  const handleSend = useCallback(() => {
-    const trimmed = input.trim();
-    if (!trimmed) return;
-
-    // Build injection preview including action log
-    let preview = `→ 发送至 AI：\n  当前世界：${isInGame ? '游戏世界' : '现实世界'}\n  玩家输入：「${trimmed}」`;
-    if (actionLog.length > 0) {
-      preview += `\n  前端操作 (${actionLog.length}项)：`;
-      for (const a of actionLog) {
-        preview += `\n    · ${a.summary}`;
-      }
+  // Auto-create chat if none active
+  useEffect(() => {
+    if (!st.initialized) return;
+    if (!st.activeChat) {
+      st.createChat('新冒险').catch(() => {});
     }
+  }, [st.initialized, st.activeChat, st.createChat]);
 
-    setInjectionPreview(preview);
-    addToast('指令已发送', 'success');
+  // Scroll to bottom on new messages
+  useEffect(() => {
+    storyEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [st.activeChat?.messages.length]);
+
+  // Build display messages: only user + assistant, skip system
+  const displayMessages = useMemo(() => {
+    const msgs = st.activeChat?.messages ?? [];
+    return msgs.filter(m => m.role === 'user' || m.role === 'assistant');
+  }, [st.activeChat?.messages]);
+
+  const hasRealMessages = displayMessages.length > 0;
+
+  // Send
+  const handleSend = useCallback(async () => {
+    const trimmed = input.trim();
+    if (!trimmed || st.streamState.isStreaming) return;
+
     setInput('');
     onClearActionLog();
 
-    // Auto-dismiss preview
-    setTimeout(() => setInjectionPreview(null), 5000);
-  }, [input, isInGame, actionLog, addToast, onClearActionLog]);
+    // Build context prefix from action log
+    let sendText = trimmed;
+    if (actionLog.length > 0) {
+      const actions = actionLog.map(a => `· ${a.summary}`).join('\n');
+      sendText = `[玩家操作]\n${actions}\n\n[玩家输入]\n${trimmed}`;
+    }
+
+    try {
+      await st.sendGameMessage(sendText);
+    } catch (e) {
+      addToast(`发送失败: ${(e as Error).message}`, 'error');
+    }
+  }, [input, st, actionLog, addToast, onClearActionLog]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -67,36 +94,105 @@ export default function CenterPanel({ isInGame, actionLog, onClearActionLog }: C
     inputRef.current?.focus();
   }, []);
 
+  // Render a single message
+  const renderMessage = (msg: (typeof displayMessages)[number]) => {
+    const isUser = msg.role === 'user';
+    const content = isUser ? msg.content : (msg.parsed?.maintext || msg.content);
+    const options = msg.parsed?.options ?? [];
+    const thinking = msg.parsed?.thinking ?? '';
+
+    // Apply macro replacement for display
+    const vars = st.activeChat?.variables ?? {};
+    const prevVars = undefined; // TODO: get from previous message
+    const { scan } = runMacroPipeline(content, vars, defsMap, undefined, prevVars);
+
+    return (
+      <div key={msg.id} className={`cp-message${isUser ? ' cp-message--user' : ' cp-message--assistant'}`}>
+        {isUser ? (
+          <div className="cp-block cp-block--action">
+            <p className="cp-text">{content}</p>
+          </div>
+        ) : (
+          <>
+            {thinking && st.settings?.thinkingDisplay !== 'hide' && (
+              <details className="cp-thinking" open={st.settings?.thinkingDisplay === 'inline'}>
+                <summary className="cp-thinking-summary">思考过程</summary>
+                <p className="cp-thinking-text">{thinking}</p>
+              </details>
+            )}
+            <div className="cp-block cp-block--narration">
+              {scan.segments.map((seg, i) =>
+                seg.type === 'text'
+                  ? <span key={i}>{seg.value}</span>
+                  : <span key={i} className={`cp-var cp-var--${seg.match.display.style}`} title={`${seg.match.key}: ${seg.match.value}${seg.match.previousValue !== undefined && seg.match.previousValue !== seg.match.value ? ` (上次: ${seg.match.previousValue})` : ''}`}>{String(seg.match.value)}</span>
+              )}
+            </div>
+            {options.length > 0 && (
+              <div className="cp-options">
+                {options.map((opt, i) => (
+                  <button
+                    key={i}
+                    className="cp-option-btn"
+                    onClick={() => {
+                      setInput(opt);
+                      inputRef.current?.focus();
+                    }}
+                    disabled={st.streamState.isStreaming}
+                  >
+                    [{i + 1}] {opt}
+                  </button>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    );
+  };
+
   return (
     <main className="center-panel">
       {/* Story Content */}
       <section className="cp-story" aria-label="游戏正文">
-        {/* World context indicator */}
         <div className={`cp-context${isInGame ? ' cp-context--game' : ' cp-context--real'}`}>
           <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
             <circle cx="12" cy="12" r="4"/>
           </svg>
           <span>{isInGame ? '游戏世界' : '现实世界'}</span>
+          {st.streamState.isStreaming && <span className="cp-streaming-dot" />}
         </div>
         <div className="cp-story-inner">
-          {MOCK_STORY.map((block, i) => (
-            <div key={i} className={`cp-block cp-block--${block.type}`}>
-              {block.speaker && (
-                <span className="cp-speaker">{block.speaker}</span>
-              )}
-              <p className="cp-text">{block.text}</p>
+          {!hasRealMessages ? (
+            MOCK_STORY.map((block, i) => (
+              <div key={i} className={`cp-block cp-block--${block.type}`}>
+                {block.speaker && <span className="cp-speaker">{block.speaker}</span>}
+                <p className="cp-text">{block.text}</p>
+              </div>
+            ))
+          ) : (
+            displayMessages.map(renderMessage)
+          )}
+          {st.streamState.isStreaming && (
+            <div className="cp-block cp-block--system">
+              <p className="cp-text">生成中<span className="cp-streaming-dots">…</span></p>
             </div>
-          ))}
+          )}
           <div ref={storyEndRef} />
         </div>
 
-        {/* Scroll fade gradient */}
+        {/* If chat is empty, show a hint */}
+        {!hasRealMessages && !st.streamState.isStreaming && st.initialized && (
+          <div className="cp-empty-hint">
+            输入指令开始冒险。API 需先在右侧「设置」中配置。
+          </div>
+        )}
+
         <div className="cp-story-fade" />
       </section>
 
-      {/* Bottom Area: Action Log + Injection Preview + Input */}
+      {/* Bottom Area */}
       <section className="cp-input-area">
-        {/* Action Log — persistent preview of what will be sent */}
+        {/* Action Log */}
         <div className={`cp-action-log${actionLog.length > 0 ? ' cp-action-log--has-actions' : ''}`}>
           <div className="cp-action-log-header">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -122,20 +218,6 @@ export default function CenterPanel({ isInGame, actionLog, onClearActionLog }: C
           )}
         </div>
 
-        {/* Injection Preview — shows only after sending */}
-        <div className={`cp-injection${injectionPreview ? ' cp-injection--visible' : ''}`}>
-          <div className="cp-injection-header">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M9 18l6-6-6-6" />
-            </svg>
-            <span>注入预览</span>
-            <button className="cp-injection-close" onClick={() => setInjectionPreview(null)} aria-label="关闭注入预览">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-            </button>
-          </div>
-          <pre className="cp-injection-body font-mono">{injectionPreview}</pre>
-        </div>
-
         {/* Quick Actions */}
         <div className="cp-quick-actions">
           {['查看周围', '打开背包', '使用技能', '休息恢复'].map(action => (
@@ -157,14 +239,15 @@ export default function CenterPanel({ isInGame, actionLog, onClearActionLog }: C
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="输入指令或对话…（Enter 发送，Shift+Enter 换行）"
+            placeholder={st.streamState.isStreaming ? 'AI 正在生成…' : '输入指令或对话…（Enter 发送，Shift+Enter 换行）'}
             rows={2}
+            disabled={st.streamState.isStreaming}
             aria-label="输入指令"
           />
           <button
             className="cp-send-btn"
             onClick={handleSend}
-            disabled={!input.trim()}
+            disabled={!input.trim() || st.streamState.isStreaming}
             aria-label="发送"
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
