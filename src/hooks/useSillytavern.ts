@@ -5,6 +5,7 @@ import { applyParsedToChat } from '../sillytavern/variables';
 import { assemblePrompt } from '../sillytavern/prompt-assembler';
 import { callSecondaryExtraction } from '../sillytavern/variable-extractor';
 import { applyVarCommands, buildDefsMap } from '../sillytavern/variable-engine';
+import { applyRegexes, collectRegexes } from '../sillytavern/regex-engine';
 import { getVariableManager } from '../sillytavern/database';
 import { captureRequest, captureResponse } from '../components/panels/DevPanel';
 import type { VarCommand } from '../sillytavern/variable-types';
@@ -367,10 +368,17 @@ export function useSillytavern() {
         formatPrompt: systemContext,
       });
 
+      // Apply prompt-side regexes (global + preset) to all messages
+      const allRegexes = collectRegexes(latestSettings.globalRegexes, effectivePreset?.regexes ?? []);
+      const regexedMessages = messages.map(m => ({
+        ...m,
+        content: applyRegexes(allRegexes, m.content, 'prompt'),
+      }));
+
       // Capture request for debug panel
       const reqId = captureRequest(
         latestSettings.api.model,
-        messages.map(m => ({ role: m.role, content: m.content }))
+        regexedMessages.map(m => ({ role: m.role, content: m.content }))
       );
       const reqStart = Date.now();
 
@@ -378,7 +386,7 @@ export function useSillytavern() {
       try {
         await router.sendStream({
           task: 'story',
-          messages,
+          messages: regexedMessages,
           onChunk: (delta) => parser.feed(delta),
         });
       } catch (e) {

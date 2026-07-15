@@ -5,6 +5,7 @@ import { useSillytavern } from '../../hooks/useSillytavern';
 import { runMacroPipeline } from '../../sillytavern/variable-macros';
 import { buildDefsMap } from '../../sillytavern/variable-engine';
 import { getVariableManager } from '../../sillytavern/database';
+import { applyRegexes, collectRegexes } from '../../sillytavern/regex-engine';
 import type { VarDefinition } from '../../sillytavern/variable-types';
 import { DebugModal } from './DevPanel';
 import './CenterPanel.css';
@@ -93,13 +94,16 @@ export default function CenterPanel({ isInGame, actionLog, onClearActionLog }: C
   // Render a single message
   const renderMessage = (msg: (typeof displayMessages)[number]) => {
     const isUser = msg.role === 'user';
-    const content = isUser ? msg.content : (msg.parsed?.maintext || msg.content);
+    const rawContent = isUser ? msg.content : (msg.parsed?.maintext || msg.content);
+    // Apply display-side regexes (global + preset)
+    const allRegexes = collectRegexes(st.settings?.globalRegexes ?? [], st.activePreset?.regexes ?? []);
+    const content = applyRegexes(allRegexes, rawContent, 'display');
     const options = msg.parsed?.options ?? [];
     const thinking = msg.parsed?.thinking ?? '';
 
     // Apply macro replacement for display
     const vars = st.activeChat?.variables ?? {};
-    const prevVars = undefined; // TODO: get from previous message
+    const prevVars = undefined;
     const { scan } = runMacroPipeline(content, vars, defsMap, undefined, prevVars);
 
     return (
