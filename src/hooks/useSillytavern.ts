@@ -297,7 +297,9 @@ export function useSillytavern() {
   const sendGameMessage = useCallback(
     async (userText: string, baseChat?: ChatSession) => {
       const chat = baseChat || activeChat;
-      if (!chat || !settings) return;
+      // Reload settings from DB to pick up latest preset/lorebook selections
+      const latestSettings = (await getSettings()) || settings;
+      if (!chat || !latestSettings) return;
 
       const userMsg: ChatMessage = {
         id: crypto.randomUUID(),
@@ -314,7 +316,9 @@ export function useSillytavern() {
       setChats((prev) => prev.map((c) => (c.id === updatedChat.id ? updatedChat : c)));
 
       // ---- Build rich context for primary API ----
-      const activeLorebookIds = new Set(settings.activeLorebookIds ?? []);
+      // Use the preset selected in latestSettings
+      const effectivePreset = presets.find(p => p.id === latestSettings.activePresetId) ?? presets[0] ?? null;
+      const activeLorebookIds = new Set(latestSettings.activeLorebookIds ?? []);
 
       // Load variable definitions for named formatting
       const vm = await getVariableManager();
@@ -334,9 +338,9 @@ export function useSillytavern() {
       const contextParts: string[] = [];
 
       // Main prompt from preset (character identity)
-      const mainPrompt = activePreset?.settings?.main;
+      const mainPrompt = effectivePreset?.settings?.main;
       if (mainPrompt && typeof mainPrompt === 'string') {
-        contextParts.push(mainPrompt.replace(/\{\{char\}\}/g, settings.characterName).replace(/\{\{user\}\}/g, settings.userName));
+        contextParts.push(mainPrompt.replace(/\{\{char\}\}/g, latestSettings.characterName).replace(/\{\{user\}\}/g, latestSettings.userName));
       }
 
       // Variable state
@@ -354,10 +358,10 @@ export function useSillytavern() {
       const { messages } = assemblePrompt({
         userInput: userText,
         history: updatedChat.messages,
-        preset: activePreset!,
+        preset: effectivePreset!,
         lorebooks: activeBooks,
-        userName: settings.userName,
-        characterName: settings.characterName,
+        userName: latestSettings.userName,
+        characterName: latestSettings.characterName,
         extraVariables: updatedChat.variables,
         formatPrompt: systemContext,
       });
@@ -383,7 +387,7 @@ export function useSillytavern() {
       let secondaryVars: VarCommand[] = [];
 
       // ---- Secondary API: post-narrative variable extraction ----
-      const secConfig = settings.api.secondary;
+      const secConfig = latestSettings.api.secondary;
       if (secConfig?.enabled && secConfig.baseUrl && secConfig.apiKey) {
         const narrativeText = parsed.maintext || events
           .filter((e: any) => e.type === 'tag-chunk' && e.tag === 'maintext')
