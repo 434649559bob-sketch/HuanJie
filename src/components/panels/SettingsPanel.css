@@ -86,3 +86,32 @@
 .sp-entry-label-text { font-size: var(--text-xs); font-weight: 500; color: var(--text-primary); }
 .sp-entry-id-text { font-size: 10px; color: var(--text-muted); font-family: var(--font-mono); }
 .sp-entry-preview { font-size: 10px; color: var(--text-muted); max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex-shrink: 0; }
+
+/* Tabs */
+.sp-tabs { display: flex; gap: var(--space-1); background: var(--surface-2); border-radius: var(--radius-sm); padding: 2px; margin-bottom: var(--space-3); }
+.sp-tab { flex: 1; padding: var(--space-1) var(--space-2); background: transparent; border: none; border-radius: calc(var(--radius-sm) - 1px); color: var(--text-muted); font-family: var(--font-ui); font-size: var(--text-xs); cursor: pointer; transition: all var(--duration-fast); }
+.sp-tab:hover { color: var(--text-secondary); }
+.sp-tab--active { color: var(--text-primary); background: var(--surface-3); }
+
+/* Form */
+.sp-form { display: flex; flex-direction: column; gap: var(--space-3); }
+.sp-field-row { display: flex; gap: var(--space-3); }
+.sp-field-row .sp-field { flex: 1; }
+
+/* Entry cards (editor) */
+.sp-entry-card {
+  border: 1px solid var(--border-subtle); border-radius: var(--radius-md);
+  background: var(--surface-2); padding: var(--space-3);
+  display: flex; flex-direction: column; gap: var(--space-2);
+}
+.sp-entry-card--off { opacity: 0.45; }
+.sp-entry-top { display: flex; align-items: center; justify-content: space-between; }
+.sp-entry-top-left { display: flex; align-items: center; gap: 4px; flex: 1; min-width: 0; }
+.sp-entry-body { display: flex; flex-direction: column; gap: 4px; padding-top: var(--space-2); border-top: 1px solid var(--border-subtle); }
+.sp-entry-content {
+  margin: 0; padding: var(--space-2); font-family: var(--font-mono); font-size: 10px;
+  line-height: 1.5; color: var(--text-secondary); white-space: pre-wrap; word-break: break-word;
+  max-height: 200px; overflow-y: auto; background: var(--surface-1); border-radius: var(--radius-sm);
+}
+.sp-entry-content--muted { color: var(--text-muted); font-style: italic; font-family: var(--font-ui); }
+.sp-badge-sm { padding: 1px 6px; border-radius: var(--radius-sm); font-size: 9px; font-weight: 600; background: var(--surface-3); color: var(--text-muted); flex-shrink: 0; }

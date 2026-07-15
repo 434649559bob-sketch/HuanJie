@@ -27,6 +27,7 @@ export default function SettingsPanel() {
   const [presets, setPresets] = useState<ChatPreset[]>([]);
   const [page, setPage] = useState<Page>('api');
   const [editingPresetId, setEditingPresetId] = useState<string | null>(null);
+  const [editorTab, setEditorTab] = useState<'params' | 'entries' | 'regex'>('entries');
 
   // API test state
   const [testPrim, setTestPrim] = useState<string | null>(null);
@@ -236,7 +237,7 @@ export default function SettingsPanel() {
                 </div>
                 <div className="sp-preset-acts">
                   {settings.activePresetId === p.id && <span className="sp-badge">使用中</span>}
-                  <button className="sp-icon-btn" onClick={e => { e.stopPropagation(); setEditingPresetId(p.id); setPage('presetEditor'); }} title="编辑条目">✏</button>
+                  <button className="sp-icon-btn" onClick={e => { e.stopPropagation(); setEditingPresetId(p.id); setEditorTab('entries'); setPage('presetEditor'); }} title="编辑条目">✏</button>
                   <button className="sp-icon-btn sp-icon-btn--danger" onClick={e => { e.stopPropagation(); handleDeletePreset(p.id); }}>🗑</button>
                 </div>
               </div>
@@ -246,25 +247,37 @@ export default function SettingsPanel() {
         )}
 
         {/* ======= PRESET EDITOR ======= */}
+        {/* ======= PRESET EDITOR ======= */}
         {page === 'presetEditor' && editingPresetId && (() => {
           const p = presets.find(x => x.id === editingPresetId);
           if (!p) return null;
           const promptsArr: any[] = p.settings.prompts || [];
           const promptMap = new Map(promptsArr.map((e: any) => [e.identifier, e]));
-          // Handle both flat and nested prompt_order
           let orderArr: any[] = p.settings.prompt_order || [];
           if (orderArr.length > 0 && Array.isArray(orderArr[0]?.order)) {
             const g = orderArr.find((x: any) => x.character_id === 100001) || orderArr[0];
             orderArr = g.order || [];
           }
 
-          const toggleEntry = async (identifier: string) => {
-            const next = orderArr.map((item: any) =>
-              item.identifier === identifier ? { ...item, enabled: !item.enabled } : item
-            );
+          const saveOrder = async (next: any[]) => {
             const updated = { ...p, settings: { ...p.settings, prompt_order: next }, updatedAt: Date.now() };
             await savePreset(updated);
             setPresets(prev => prev.map(x => x.id === editingPresetId ? updated : x));
+          };
+
+          const toggleEntry = (identifier: string) => {
+            const next = orderArr.map((item: any) =>
+              item.identifier === identifier ? { ...item, enabled: !item.enabled } : item
+            );
+            saveOrder(next);
+          };
+
+          const moveEntry = (idx: number, dir: -1 | 1) => {
+            const target = idx + dir;
+            if (target < 0 || target >= orderArr.length) return;
+            const next = [...orderArr];
+            [next[idx], next[target]] = [next[target], next[idx]];
+            saveOrder(next);
           };
 
           return (
@@ -273,35 +286,83 @@ export default function SettingsPanel() {
                 <button className="sp-btn sp-btn--sm" onClick={() => { setPage('presets'); setEditingPresetId(null); }}>← 返回</button>
                 <span>{p.name}</span>
               </div>
-              <div className="sp-active-hint">
-                temp: {p.settings.temp_openai ?? p.settings.temperature ?? 0.8} ·
-                top_p: {p.settings.top_p_openai ?? p.settings.top_p ?? 0.9} ·
-                max_tokens: {p.settings.openai_max_tokens ?? 2048} ·
-                正则: {p.regexes?.length || 0} 条
+
+              <div className="sp-tabs">
+                <button className={`sp-tab ${editorTab === 'params' ? 'sp-tab--active' : ''}`} onClick={() => setEditorTab('params')}>参数</button>
+                <button className={`sp-tab ${editorTab === 'entries' ? 'sp-tab--active' : ''}`} onClick={() => setEditorTab('entries')}>条目 ({orderArr.length})</button>
+                <button className={`sp-tab ${editorTab === 'regex' ? 'sp-tab--active' : ''}`} onClick={() => setEditorTab('regex')}>正则 ({p.regexes?.length || 0})</button>
               </div>
-              <div className="sp-section-header">
-                <span>条目顺序（按此组装 Prompt）</span>
-              </div>
-              {orderArr.length === 0 && <div className="sp-empty">此预设没有 prompt_order 条目。</div>}
-              {orderArr.map((item: any, i: number) => {
-                const prompt = promptMap.get(item.identifier);
-                const enabled = item.enabled !== false;
-                const content = prompt?.content || '';
-                const name = prompt?.name || item.identifier;
-                const marker = prompt?.marker;
-                return (
-                  <div key={i} className={`sp-entry-row ${enabled ? '' : 'sp-entry-row--disabled'}`}
-                       onClick={() => toggleEntry(item.identifier)}>
-                    <input type="checkbox" checked={enabled} onChange={() => toggleEntry(item.identifier)}
-                           onClick={e => e.stopPropagation()} style={{ accentColor: 'var(--accent-400)', flexShrink: 0 }} />
-                    <div className="sp-entry-text">
-                      <span className="sp-entry-label-text">{name}</span>
-                      <span className="sp-entry-id-text">{item.identifier}{marker ? ' [动态]' : ''}</span>
-                    </div>
-                    <span className="sp-entry-preview">{content.slice(0, 80)}{content.length > 80 ? '…' : ''}</span>
+
+              {editorTab === 'params' && (
+                <div className="sp-form">
+                  <div className="sp-field-row">
+                    {field('Temperature', <input className="sp-input" type="number" min={0} max={2} step={0.05} value={p.settings.temp_openai ?? p.settings.temperature ?? 0.8} readOnly />)}
+                    {field('Top P', <input className="sp-input" type="number" min={0} max={1} step={0.05} value={p.settings.top_p_openai ?? p.settings.top_p ?? 0.9} readOnly />)}
                   </div>
-                );
-              })}
+                  <div className="sp-field-row">
+                    {field('Max Tokens', <input className="sp-input" type="number" value={p.settings.openai_max_tokens ?? 2048} readOnly />)}
+                    {field('Max Context', <input className="sp-input" type="number" value={p.settings.openai_max_context ?? 4096} readOnly />)}
+                  </div>
+                  <div className="sp-active-hint">参数来自导入的预设文件，不可编辑。用导入功能替换预设即可更新。</div>
+                </div>
+              )}
+
+              {editorTab === 'entries' && (
+                <>
+                  {orderArr.length === 0 && <div className="sp-empty">此预设没有 prompt_order 条目。</div>}
+                  {orderArr.map((item: any, i: number) => {
+                    const prompt = promptMap.get(item.identifier);
+                    const enabled = item.enabled !== false;
+                    const content: string = prompt?.content || '';
+                    const name = prompt?.name || item.identifier;
+                    const marker = prompt?.marker;
+                    const role = prompt?.role || 'system';
+                    return (
+                      <div key={i} className={`sp-entry-card ${enabled ? '' : 'sp-entry-card--off'}`}>
+                        <div className="sp-entry-top">
+                          <div className="sp-entry-top-left">
+                            <button className="sp-icon-btn" onClick={() => moveEntry(i, -1)} disabled={i === 0}>↑</button>
+                            <button className="sp-icon-btn" onClick={() => moveEntry(i, 1)} disabled={i === orderArr.length - 1}>↓</button>
+                            <label className="sp-check" onClick={e => e.stopPropagation()}>
+                              <input type="checkbox" checked={enabled} onChange={() => toggleEntry(item.identifier)} />
+                              <strong>{name}</strong>
+                            </label>
+                            <span className="sp-badge-sm">{marker ? '动态' : role}</span>
+                          </div>
+                        </div>
+                        <div className="sp-entry-body">
+                          <div className="sp-entry-id-text">{item.identifier}</div>
+                          {marker ? (
+                            <div className="sp-entry-content sp-entry-content--muted">[动态占位符 — 运行时由系统注入内容]</div>
+                          ) : (
+                            <pre className="sp-entry-content">{content}</pre>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </>
+              )}
+
+              {editorTab === 'regex' && (
+                <>
+                  {(!p.regexes || p.regexes.length === 0) && (
+                    <div className="sp-empty">此预设不含正则规则。</div>
+                  )}
+                  {(p.regexes || []).map((r: RegexRule, i: number) => (
+                    <div key={r.id || i} className={`sp-entry-card ${r.enabled ? '' : 'sp-entry-card--off'}`}>
+                      <div className="sp-entry-top">
+                        <span className="sp-check"><strong>{r.name}</strong></span>
+                        <span className="sp-badge-sm">{r.destination}</span>
+                      </div>
+                      <div className="sp-entry-body">
+                        <div className="sp-entry-id-text">匹配: {r.findRegex.slice(0, 100)}{r.findRegex.length > 100 ? '…' : ''}</div>
+                        <div className="sp-entry-id-text">替换: {r.replaceString.slice(0, 100)}{r.replaceString.length > 100 ? '…' : ''}</div>
+                      </div>
+                    </div>
+                  ))}
+                </>
+              )}
             </div>
           );
         })()}
