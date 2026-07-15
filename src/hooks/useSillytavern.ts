@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useStreamParser } from './useStreamParser';
 import { useApiRouter } from './useApiRouter';
 import { applyParsedToChat } from '../sillytavern/variables';
@@ -95,6 +95,40 @@ export function useSillytavern() {
       cancelled = true;
     };
   }, []);
+
+  // Live sync frontend state → chat.variables
+  const stateFingerprint = useRef('');
+  useEffect(() => {
+    if (!initialized || !activeChatId) return;
+    const interval = setInterval(async () => {
+      const gs = (window as any).__GAME_STATE__;
+      if (!gs?.player) return;
+      const fp = `${gs.player?.hp}|${gs.player?.mp}|${gs.player?.money}|${gs.equipment?.weapon?.id}|${gs.inventory?.length}`;
+      if (fp === stateFingerprint.current) return;
+      stateFingerprint.current = fp;
+      try {
+        const { syncAllState } = await import('../sillytavern/state-sync');
+        const synced = syncAllState({
+          player: gs.player || {}, timeLocation: gs.timeLocation || {},
+          zoneInfo: gs.zoneInfo || {}, realZoneInfo: gs.realZoneInfo || {},
+          equipment: gs.equipment || {}, ownedEquipment: gs.ownedEquipment || [],
+          fashion: gs.fashion || {}, ownedFashion: gs.ownedFashion || [],
+          fashionNudeSlots: gs.fashionNudeSlots || [], appearanceSummary: gs.appearanceSummary || '',
+          inventory: gs.inventory || [], ownedGems: gs.ownedGems || [],
+          quests: gs.quests || [], contacts: gs.contacts || [],
+          isInGame: gs.isInGame ?? true,
+        });
+        const current = await db.chats.get(activeChatId);
+        if (current) {
+          current.variables = { ...synced, ...current.variables };
+          current.updatedAt = Date.now();
+          await db.chats.put(current);
+          setChats(prev => prev.map(c => c.id === current.id ? current : c));
+        }
+      } catch { /* retry next interval */ }
+    }, 1500);
+    return () => clearInterval(interval);
+  }, [initialized, activeChatId]);
 
   // ---- chat helpers ----
   const createChat = useCallback(
