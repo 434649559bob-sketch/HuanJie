@@ -14,75 +14,112 @@ import type { VarCommand } from './variable-types';
 const UPDATE_RULES = `
 ## 变量更新规则
 
-你必须根据叙事正文中的具体描述来更新变量。没有明确描述的变化不要更新。
+所有变量保存在一个嵌套结构中。路径用点号分隔，如 player.hp、contacts.柳白霜.affection。
+数组用数字索引或追加新元素。
 
-### 玩家属性
-- player.hp: 战斗受伤或恢复时更新。轻伤 -5~15，重伤 -20~50，治疗恢复 +10~30。不能超过 player.maxHp，不能低于 0
-- player.mp: 使用技能或恢复时更新。技能消耗 -5~20，冥想恢复 +5~15。不能超过 player.maxMp
-- player.money: 获得报酬 +50~500，购买物品减少对应金额，不能低于 0
-- player.xp: 战斗胜利 +100~1000，完成任务 +200~2000，不能超过 player.xpToNext
-- player.level: 当 player.xp >= player.xpToNext 时升1级，同时 player.xp -= player.xpToNext，player.xpToNext * 1.5
-- player.powerLevel: 升级时 +100~300，获得强力装备时 +50~200
-- player.actionStatus: 随时更新为当前动作描述（如"盘坐调息中""前往剑冢"等）
-- player.corePath.progress: 顿悟或突破时 +1~10
-- player.rank.progress: 突破境界时 +1~15
-
-### 技能
-- skills[N].proficiency: 使用技能成功时 +1~5，上限100
-
-### 状态效果
-- buffs.game: 获得新的buff时向数组添加 {name, effect, source}，buff过期时移除
-- debuffs.game: 受到新的debuff时向数组添加，debuff解除时移除
-- buffs.real: 现实世界获得增益时添加
-- debuffs.real: 现实世界获得减益时添加
-
-### 装备（注意：前端锻造/装备操作不需要你处理）
-- 仅当叙事中"获得"新装备时，向 ownedEquipment 数组添加 {id, name, slot, quality, basePower, enhanceLevel}
-- 叙事中"丢弃""损坏"装备时，从对应数组移除
-- 不要更新 equipment.{slot} 的强化等级——那是前端锻造系统处理的
-
-### 时装
-- fashion.{slot}: 叙事中换装时更新 {id, name, quality, description, visualEffect}
-- fashionNudeSlots: 不再需要时移除对应槽位
-
-### 背包
-- inventory: 叙事中获得物品时添加 {id, name, type, quality, quantity, description, effect, usable}
-- inventory[N].quantity: 使用物品时减1，数量归零则移除该物品
-- 注意：前端"使用道具"按钮已经处理了物品消耗，你只需处理叙事中明确描述的使用
-
-### 宝石
-- gems: 叙事中获得宝石时添加 {id, name, quality, powerBonus, effect}
-
-### 时间与位置
-- location.game: 玩家移动到新区域时更新
-- location.world: 跨世界移动时更新
-- time.game: 根据叙事推进时间（每次主要事件后推进10~60分钟）
-- time.real: 与 time.game 同步推进
-
-### 区域
-- zone.name: 进入新区块时更新
-- zone.type: 进入不同类型区域时更新
-- zone.coefficient: 进入不同力量体系区域时更新（修仙=1.2, 废土=0.2~0.8, 赛博=0.9, 通用=1.0）
-
-### 融合
-- fusion.rate: 叙事中出现两界融合相关事件时 +1~5，上限100
-- fusion.isInGame: 玩家登录/退出游戏时切换
-
-### 联系人
-- contacts[N].affection: 好感度因互动而 ±1~10，上限100
-- contacts[N].relationship: 关系重大变化时更新描述
-- contacts[N].status: 上线/离线/离开
-- contacts[N].isPresent: 出现在当前场景时为true
-- contacts[N].gameLocation: 角色移动到新位置时更新
-
-### 任务
-- quests[N].status: 任务完成改为 "completed"，失败改为 "failed"
-- quests[N].objectives[M].current: 目标进度增加时更新，达到 required 则完成
-- 新任务接受时向 quests 数组添加完整任务对象
-
-### 现实世界
-- reality.dangerLevel: 融合度>30%时根据叙事调整 0~100
+### ① 固定数值变量（始终存在）
+这些变量总是存在，你只需更新它们的值：
+- player.hp: 战斗受伤/治疗时更新，轻伤-5~15，重伤-20~50，治疗+10~30。范围 0~player.maxHp
+- player.mp: 技能消耗-5~20，冥想+5~15。范围 0~player.maxMp
+- player.money: 收入+50~500，消费减去对应金额。最低0
+- player.xp: 战斗+100~1000，任务+200~2000。若 >= player.xpToNext 则升级
+- player.level: xp >= xpToNext 时 +1
+- player.powerLevel: 升级+100~300，获强力装备+50~200
+- player.actionStatus: 更新为当前动作简述
+- player.corePath.progress: 顿悟+1~10，上限100
+- player.rank.progress: 境界突破+1~15，上限100
+- skills[N].proficiency: 成功使用技能+1~5，上限100
+- fusion.rate: 两界融合事件+1~5，上限100
+- fusion.isInGame: 登录/登出时切换 true/false
+- location.game: 移动到新地点时更新
+- location.world: 跨世界时更新
 - location.real: 现实位置变化时更新
+- time.game: 主要事件后推进10~60分钟
+- time.real: 与游戏时间同步
+- zone.name / zone.type / zone.coefficient: 进入不同区域时更新
+- reality.dangerLevel: 融合度>30%时根据叙事调整0~100
+
+### ② 动态数组（可新增/删除/修改元素）
+这些是数组，你可以用 insert 添加新元素（索引填 "-" 表示追加到末尾），用 remove 删除元素（索引填数字）。
+
+**技能 skills:**
+- 每个元素: {id, name, type:"offense"|"defense"|"utility", proficiency:0~100, description, source}
+- 学习新技能时 insert，遗忘时 remove
+
+**增益 buffs.game / buffs.real:**
+- 每个元素: {name, effect, source}
+- 获得buff时 insert，过期时 remove
+
+**减益 debuffs.game / debuffs.real:**
+- 同上
+
+**持有装备 ownedEquipment:**
+- 每个元素: {id, name, slot, quality, basePower, enhanceLevel}
+- 获得装备时 insert，丢弃/损坏时 remove
+- 注意：强化/锻造是前端操作，你不需要处理
+
+**背包 inventory:**
+- 每个元素: {id, name, type:"consumable"|"material"|"key", quality, quantity, description, effect, usable}
+- 获得物品时 insert，quantity减到0时 remove
+- 前端"使用道具"已处理消耗，你只处理叙事中明确提及的
+
+**持有宝石 gems:**
+- 每个元素: {id, name, quality, powerBonus, effect}
+- 获得宝石时 insert
+
+**时装 ownedFashion:**
+- 每个元素: {id, name, slot, quality, description, visualEffect}
+- 获得时 insert
+
+**时装裸露槽位 fashionNudeSlots:**
+- 字符串数组，标记裸露的装备槽位名
+
+**任务 quests:**
+- 每个元素: {id, name, type:"main"|"side"|"daily", status:"active"|"completed"|"failed", description, giver, location, objectives:[{id, description, current, required}], rewards:{xp, money, items, title}}
+- 接新任务时 insert，quests[N].objectives[M].current 进度更新用 replace
+- 任务完成 quests[N].status 改为 "completed"
+
+### ③ 动态记录（可新增角色/NPC，每个角色一整套变量）
+**contacts 是一个记录表，键名是角色名字。每个角色有完整的子变量：**
+
+contacts.{角色名}.type = "player"|"npc"
+contacts.{角色名}.gameClass = 职业
+contacts.{角色名}.level = 等级
+contacts.{角色名}.powerLevel = 战力
+contacts.{角色名}.status = "online"|"offline"|"away"
+contacts.{角色名}.isPresent = 是否在当前场景
+contacts.{角色名}.affection = 好感度 0~100
+contacts.{角色名}.relationship = 关系描述
+contacts.{角色名}.title = 称号
+contacts.{角色名}.gameLocation = 游戏位置
+contacts.{角色名}.realName = 真实姓名
+contacts.{角色名}.realOccupation = 现实身份
+contacts.{角色名}.gameDescription = 游戏描述（长文本）
+contacts.{角色名}.realDescription = 现实描述（长文本）
+contacts.{角色名}.gameAppearance = 游戏外貌（长文本）
+contacts.{角色名}.realAppearance = 现实外貌（长文本）
+contacts.{角色名}.gender = 性别
+contacts.{角色名}.realAge = 现实年龄
+
+**新增角色规则：**
+- 叙事中出现了新的有名字的NPC → 用 insert 在 contacts 下创建该角色的完整变量
+- 已有角色的属性变化 → 用 replace 更新对应路径
+- 角色死亡或离开剧情 → 可将其 status 改为 "offline"
+
+**装备槽位 equipment.{weapon|helmet|armor|gloves|pants|shoes|accessory1|accessory2}:**
+- 每个槽位: {id, name, quality, basePower, enhanceLevel, enhanceBonus, gemBonus, description, source, sourceDetail, extraEffect, gemCount, maxSockets} 或 null
+- 换装时 replace 整个槽位对象
+- 注意：镶嵌/强化是前端操作
+
+**时装槽位 fashion.{weapon|helmet|armor|gloves|pants|shoes|accessory1|accessory2}:**
+- 每个槽位: {id, name, quality, description, visualEffect} 或 null
+
+### ④ 通用原则
+- 你只需关注叙事中明确描述的变化
+- 前端已经处理的操作（锻造强化、镶嵌宝石、前端使用道具）你不需要再处理
+- 新出现的角色/NPC/物品要创建对应的变量条目
+- 数值始终在合理范围内，不要溢出
+- 路径格式: parent.child.grandchild，数组用 parent[N].field
 `;
 
 // ============================================================
