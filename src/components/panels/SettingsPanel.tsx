@@ -155,7 +155,7 @@ export default function SettingsPanel() {
   };
 
   // prompt entries
-  const promptEntries = (presetForm.prompts || []) as Array<{ identifier: string; name?: string; role?: string; content?: string; enabled?: boolean; marker?: boolean; system_prompt?: boolean }>;
+  const promptEntries = (presetForm.prompts || []) as Array<{ identifier: string; name?: string; role?: string; content?: string; enabled?: boolean; marker?: boolean; system_prompt?: boolean; injection_position?: number; injection_depth?: number; injection_order?: number; forbid_overrides?: boolean }>;
   const updatePromptEntry = (idx: number, patch: Partial<typeof promptEntries[number]>) => {
     const next = [...promptEntries];
     next[idx] = { ...next[idx], ...patch };
@@ -382,10 +382,20 @@ export default function SettingsPanel() {
                         {renderField('角色', <select className="sp-input" value={e.role ?? 'system'} onChange={ev => updatePromptEntry(i, { role: ev.target.value })}>
                           <option value="system">system</option><option value="user">user</option><option value="assistant">assistant</option>
                         </select>)}
-                        <label className="sp-check" style={{ alignSelf: 'flex-end', marginBottom: 2 }}>
-                          <input type="checkbox" checked={!!e.marker} onChange={ev => updatePromptEntry(i, { marker: ev.target.checked || undefined })} />动态占位（无content，运行时替换）
-                        </label>
+                        {renderField('注入位置', <select className="sp-input" value={e.injection_position ?? 0} onChange={ev => updatePromptEntry(i, { injection_position: Number(ev.target.value) })}>
+                          <option value={0}>0 - 相对（系统提示区）</option><option value={1}>1 - 绝对（聊天深度）</option>
+                        </select>)}
                       </div>
+                      <div className="sp-field-row">
+                        <label className="sp-check"><input type="checkbox" checked={!!e.marker} onChange={ev => updatePromptEntry(i, { marker: ev.target.checked || undefined })} />动态占位</label>
+                        <label className="sp-check"><input type="checkbox" checked={!!e.system_prompt} onChange={ev => updatePromptEntry(i, { system_prompt: ev.target.checked || undefined })} />系统提示（可被角色卡覆盖）</label>
+                      </div>
+                      {e.injection_position === 1 && (
+                        <div className="sp-field-row">
+                          {renderField('深度', <input className="sp-input" type="number" value={e.injection_depth ?? 4} onChange={ev => updatePromptEntry(i, { injection_depth: Number(ev.target.value) })} />)}
+                          {renderField('顺序', <input className="sp-input" type="number" value={e.injection_order ?? 100} onChange={ev => updatePromptEntry(i, { injection_order: Number(ev.target.value) })} />)}
+                        </div>
+                      )}
                       {!e.marker && (
                         <textarea className="sp-input sp-textarea" rows={3} value={e.content ?? ''} onChange={ev => updatePromptEntry(i, { content: ev.target.value })} placeholder="条目文本内容…" />
                       )}
