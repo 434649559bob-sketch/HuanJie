@@ -96,6 +96,7 @@
   line-height: 1.85;
   color: var(--text-primary);
   letter-spacing: 0.01em;
+  user-select: text;
 }
 
 .cp-block--narration .cp-text {

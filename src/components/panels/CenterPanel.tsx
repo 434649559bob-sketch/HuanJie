@@ -94,23 +94,23 @@ export default function CenterPanel({ isInGame, actionLog, onClearActionLog }: C
   // Render a single message
   const renderMessage = (msg: (typeof displayMessages)[number]) => {
     const isUser = msg.role === 'user';
-    const rawContent = isUser ? msg.content : (msg.parsed?.maintext || msg.content);
-    // Apply display-side regexes (global + preset)
-    const allRegexes = collectRegexes(st.settings?.globalRegexes ?? [], st.activePreset?.regexes ?? []);
-    const content = applyRegexes(allRegexes, rawContent, 'display');
+    const rawMaintext = isUser ? msg.content : (msg.parsed?.maintext || msg.content);
     const options = msg.parsed?.options ?? [];
     const thinking = msg.parsed?.thinking ?? '';
 
-    // Apply macro replacement for display
+    // Step 1: Variable macro replacement on plain text
     const vars = st.activeChat?.variables ?? {};
-    const prevVars = undefined;
-    const { scan } = runMacroPipeline(content, vars, defsMap, undefined, prevVars);
+    const replacedText = runMacroPipeline(rawMaintext, vars, defsMap).text;
+
+    // Step 2: Apply display-side regexes (may produce HTML)
+    const allRegexes = collectRegexes(st.settings?.globalRegexes ?? [], st.activePreset?.regexes ?? []);
+    const displayHtml = applyRegexes(allRegexes, replacedText, 'display');
 
     return (
       <div key={msg.id} className={`cp-message${isUser ? ' cp-message--user' : ' cp-message--assistant'}`}>
         {isUser ? (
           <div className="cp-block cp-block--action">
-            <p className="cp-text">{content}</p>
+            <p className="cp-text">{displayHtml}</p>
           </div>
         ) : (
           <>
@@ -121,11 +121,7 @@ export default function CenterPanel({ isInGame, actionLog, onClearActionLog }: C
               </details>
             )}
             <div className="cp-block cp-block--narration">
-              {scan.segments.map((seg, i) =>
-                seg.type === 'text'
-                  ? <span key={i}>{seg.value}</span>
-                  : <span key={i} className={`cp-var cp-var--${seg.match.display.style}`} title={`${seg.match.key}: ${seg.match.value}${seg.match.previousValue !== undefined && seg.match.previousValue !== seg.match.value ? ` (上次: ${seg.match.previousValue})` : ''}`}>{String(seg.match.value)}</span>
-              )}
+              <div className="cp-text" dangerouslySetInnerHTML={{ __html: displayHtml }} />
             </div>
             {options.length > 0 && (
               <div className="cp-options">
