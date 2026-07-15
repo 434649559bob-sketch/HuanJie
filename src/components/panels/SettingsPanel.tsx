@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import {
   DEFAULT_SETTINGS,
   type AppSettings,
@@ -120,7 +120,10 @@ export default function SettingsPanel() {
   // -- Model list --
   const [primaryModels, setPrimaryModels] = useState<string[]>([]);
   const [secondaryModels, setSecondaryModels] = useState<string[]>([]);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [fetchingPrimary, setFetchingPrimary] = useState(false);
+  const [fetchingSecondary, setFetchingSecondary] = useState(false);
+  const [primaryModelSource, setPrimaryModelSource] = useState<string | null>(null);
+  const [secondaryModelSource, setSecondaryModelSource] = useState<string | null>(null);
 
   // Load from IndexedDB on mount
   useEffect(() => {
@@ -141,31 +144,29 @@ export default function SettingsPanel() {
     return () => { cancelled = true; };
   }, []);
 
-  // Debounced model fetch when baseUrl changes
-  const scheduleModelFetch = useCallback(
-    (target: 'primary' | 'secondary') => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-      debounceRef.current = setTimeout(() => {
-        const api =
-          target === 'primary'
-            ? { baseUrl: settings.api.baseUrl, apiKey: settings.api.apiKey }
-            : {
-                baseUrl: settings.api.secondary?.baseUrl ?? '',
-                apiKey: settings.api.secondary?.apiKey ?? '',
-              };
-        if (!api.baseUrl) {
-          if (target === 'primary') setPrimaryModels([]);
-          else setSecondaryModels([]);
-          return;
-        }
-        fetchModels(api).then(({ models }) => {
-          if (target === 'primary') setPrimaryModels(models);
-          else setSecondaryModels(models);
-        });
-      }, 600);
-    },
-    [settings.api]
-  );
+  // Explicit model fetch handler
+  const handleFetchModels = useCallback(async (target: 'primary' | 'secondary') => {
+    const api = target === 'primary'
+      ? { baseUrl: settings.api.baseUrl, apiKey: settings.api.apiKey }
+      : { baseUrl: settings.api.secondary?.baseUrl ?? '', apiKey: settings.api.secondary?.apiKey ?? '' };
+    if (!api.baseUrl) return;
+
+    const setFetching = target === 'primary' ? setFetchingPrimary : setFetchingSecondary;
+    const setModels = target === 'primary' ? setPrimaryModels : setSecondaryModels;
+    const setSource = target === 'primary' ? setPrimaryModelSource : setSecondaryModelSource;
+
+    setFetching(true);
+    try {
+      const { models, source, error } = await fetchModels(api);
+      setModels(models);
+      setSource(error ? `⚠ ${error}` : source === 'remote' ? '远程获取' : '内置列表');
+    } catch {
+      setModels([]);
+      setSource('获取失败');
+    } finally {
+      setFetching(false);
+    }
+  }, [settings.api]);
 
   // -- Persist --
   const persist = useCallback(
@@ -394,12 +395,8 @@ export default function SettingsPanel() {
                 <input
                   className="sp-input sp-input--mono"
                   value={settings.api.baseUrl}
-                  onChange={(e) => {
-                    updateApi({ baseUrl: e.target.value });
-                    scheduleModelFetch('primary');
-                  }}
+                  onChange={(e) => updateApi({ baseUrl: e.target.value })}
                   placeholder="https://api.openai.com/v1"
-                  onBlur={() => scheduleModelFetch('primary')}
                 />
                 <span className="sp-hint">OpenAI 兼容端点，支持 DeepSeek / Kimi / 通义千问 / 本地模型</span>
               </label>
@@ -418,26 +415,38 @@ export default function SettingsPanel() {
               <label className="sp-field">
                 <span className="sp-label">Model</span>
                 <div className="sp-model-row">
-                  <input
-                    className="sp-input sp-input--mono"
-                    value={settings.api.model}
-                    onChange={(e) => updateApi({ model: e.target.value })}
-                    placeholder="gpt-4o"
-                    list="sp-primary-models"
-                  />
-                  {primaryModels.length > 0 && (
-                    <datalist id="sp-primary-models">
-                      {primaryModels.map((m) => (
-                        <option key={m} value={m} />
-                      ))}
-                    </datalist>
-                  )}
+                  <div className="sp-model-select-wrap">
+                    {primaryModels.length > 0 ? (
+                      <select
+                        className="sp-input sp-input--mono"
+                        value={settings.api.model}
+                        onChange={(e) => updateApi({ model: e.target.value })}
+                      >
+                        <option value="">-- 选择模型 --</option>
+                        {primaryModels.map((m) => (
+                          <option key={m} value={m}>{m}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        className="sp-input sp-input--mono"
+                        value={settings.api.model}
+                        onChange={(e) => updateApi({ model: e.target.value })}
+                        placeholder="手动输入模型名"
+                      />
+                    )}
+                  </div>
+                  <button
+                    className="sp-btn sp-btn--fetch"
+                    onClick={() => handleFetchModels('primary')}
+                    disabled={fetchingPrimary || !settings.api.baseUrl}
+                  >
+                    {fetchingPrimary ? '获取中…' : '获取模型'}
+                  </button>
                 </div>
-                {primaryModels.length > 0 && (
-                  <span className="sp-hint">
-                    已发现 {primaryModels.length} 个模型：
-                    {primaryModels.slice(0, 6).join(', ')}
-                    {primaryModels.length > 6 ? '…' : ''}
+                {primaryModelSource && (
+                  <span className={`sp-hint${primaryModelSource.startsWith('⚠') ? ' sp-hint--warn' : ''}`}>
+                    {primaryModelSource} · {primaryModels.length} 个模型
                   </span>
                 )}
               </label>
@@ -523,12 +532,8 @@ export default function SettingsPanel() {
                     <input
                       className="sp-input sp-input--mono"
                       value={settings.api.secondary?.baseUrl ?? ''}
-                      onChange={(e) => {
-                        updateSecondary({ baseUrl: e.target.value });
-                        scheduleModelFetch('secondary');
-                      }}
+                      onChange={(e) => updateSecondary({ baseUrl: e.target.value })}
                       placeholder="https://api.deepseek.com/v1"
-                      onBlur={() => scheduleModelFetch('secondary')}
                     />
                   </label>
 
@@ -551,16 +556,33 @@ export default function SettingsPanel() {
                         value={settings.api.secondary?.model ?? ''}
                         onChange={(e) => updateSecondary({ model: e.target.value })}
                         placeholder="deepseek-chat"
-                        list="sp-secondary-models"
-                      />
-                      {secondaryModels.length > 0 && (
-                        <datalist id="sp-secondary-models">
-                          {secondaryModels.map((m) => (
-                            <option key={m} value={m} />
-                          ))}
-                        </datalist>
-                      )}
+                        />
+                      <button
+                        className="sp-btn sp-btn--fetch"
+                        onClick={() => handleFetchModels('secondary')}
+                        disabled={fetchingSecondary || !settings.api.secondary?.baseUrl}
+                      >
+                        {fetchingSecondary ? '获取中…' : '获取模型'}
+                      </button>
                     </div>
+                    {secondaryModels.length > 0 ? (
+                      <select
+                        className="sp-input sp-input--mono"
+                        value={settings.api.secondary?.model ?? ''}
+                        onChange={(e) => updateSecondary({ model: e.target.value })}
+                        style={{ marginTop: 6 }}
+                      >
+                        <option value="">-- 选择模型 --</option>
+                        {secondaryModels.map((m) => (
+                          <option key={m} value={m}>{m}</option>
+                        ))}
+                      </select>
+                    ) : null}
+                    {secondaryModelSource && (
+                      <span className={`sp-hint${secondaryModelSource.startsWith('⚠') ? ' sp-hint--warn' : ''}`}>
+                        {secondaryModelSource} · {secondaryModels.length} 个模型
+                      </span>
+                    )}
                   </label>
 
                   <label className="sp-field">
