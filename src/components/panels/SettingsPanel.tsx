@@ -119,17 +119,51 @@ export default function SettingsPanel() {
       try {
         const rawName = f.name.replace(/\.json$/i, '');
         const data = JSON.parse(await f.text());
-        // Use filename as preset name, fallback to preset data name or ST's data.name
         const presetName = rawName || data.name || data.preset || '导入的预设';
-        // Normalize ST-native field names to our internal names
+        // Normalize ST-native field names
         const normalized = { ...data };
         if (normalized.temperature !== undefined && normalized.temp_openai === undefined) normalized.temp_openai = normalized.temperature;
         if (normalized.top_p !== undefined && normalized.top_p_openai === undefined) normalized.top_p_openai = normalized.top_p;
         if (normalized.frequency_penalty !== undefined && normalized.freq_pen_openai === undefined) normalized.freq_pen_openai = normalized.frequency_penalty;
         if (normalized.presence_penalty !== undefined && normalized.pres_pen_openai === undefined) normalized.pres_pen_openai = normalized.presence_penalty;
         if (normalized.repetition_penalty !== undefined && normalized.repetition_penalty_openai === undefined) normalized.repetition_penalty_openai = normalized.repetition_penalty;
+
+        // Extract regexes from SPresetSettings entry (JS-Slash-Runner format)
+        let extractedRegexes: RegexRule[] = [];
+        const promptsArr = normalized.prompts || [];
+        const spIdx = promptsArr.findIndex((p: any) => p.identifier === 'SPresetSettings');
+        if (spIdx >= 0) {
+          try {
+            const spContent = JSON.parse(promptsArr[spIdx].content || '{}');
+            const regexBinding = spContent.RegexBinding || spContent.regexBinding || {};
+            const rawRegexes: any[] = regexBinding.regexes || [];
+            extractedRegexes = rawRegexes.map((r: any) => ({
+              id: r.id || crypto.randomUUID(),
+              name: r.scriptName || '未命名',
+              enabled: !r.disabled,
+              findRegex: r.findRegex || '',
+              replaceString: r.replaceString || '',
+              source: { userInput: true, aiOutput: true, slashCommand: false, worldInfo: false },
+              destination: (r.promptOnly && !r.markdownOnly) ? 'prompt' : (!r.promptOnly && r.markdownOnly) ? 'display' : 'both',
+              minDepth: r.minDepth ?? null,
+              maxDepth: r.maxDepth ?? null,
+              runOnEdit: r.runOnEdit ?? false,
+              order: 0,
+            }));
+          } catch { /* SPresetSettings content is not valid JSON, skip regex extraction */ }
+        }
+
+        // Normalize ST's nested prompt_order [{character_id, order:[]}] → flat [{identifier, enabled}]
+        let flatOrder = normalized.prompt_order;
+        if (Array.isArray(flatOrder) && flatOrder.length > 0 && Array.isArray(flatOrder[0]?.order)) {
+          // Find order for character_id 100001 (ST's "global" dummy), or use first
+          const globalOrder = flatOrder.find((g: any) => g.character_id === 100001) || flatOrder[0];
+          flatOrder = globalOrder.order || [];
+        }
+        if (flatOrder) normalized.prompt_order = flatOrder;
+
         const imported = importPreset(normalized);
-        const p: ChatPreset = { ...imported, name: presetName, id: crypto.randomUUID(), createdAt: Date.now(), updatedAt: Date.now() };
+        const p: ChatPreset = { ...imported, name: presetName, regexes: extractedRegexes, id: crypto.randomUUID(), createdAt: Date.now(), updatedAt: Date.now() };
         await savePreset(p);
         setPresets(prev => [...prev, p]);
       } catch (e) { alert('导入失败：文件格式不正确 — ' + (e as Error).message); }
