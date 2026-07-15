@@ -383,7 +383,7 @@ export function useSillytavern() {
         });
       } catch (e) {
         parser.reset();
-        captureResponse(reqId, '', {}, Date.now() - reqStart, undefined, (e as Error).message);
+        captureResponse(reqId, '', {}, Date.now() - reqStart, (e as Error).message);
         throw e;
       }
 
