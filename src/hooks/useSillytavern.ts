@@ -11,6 +11,7 @@ import {
   DEFAULT_TAGS,
   DEFAULT_OPAQUE_TAGS,
   DEFAULT_SETTINGS,
+  DEFAULT_FORMAT_PROMPT,
   type AppSettings,
   type ChatPreset,
   type ChatSession,
@@ -312,16 +313,59 @@ export function useSillytavern() {
       await db.chats.put(updatedChat);
       setChats((prev) => prev.map((c) => (c.id === updatedChat.id ? updatedChat : c)));
 
+      // ---- Build rich context for primary API ----
       const activeLorebookIds = new Set(settings.activeLorebookIds ?? []);
+
+      // Load variable definitions for named formatting
+      const vm = await getVariableManager();
+      const defsMap = vm ? buildDefsMap(vm) : new Map();
+
+      // Format variables with their display names
+      const { formatVariablesForPrompt } = await import('../sillytavern/variable-engine');
+      const varBlock = formatVariablesForPrompt(updatedChat.variables ?? {}, defsMap);
+
+      // Format active lorebook content
+      const activeBooks = lorebooks.filter((l) => activeLorebookIds.has(l.id));
+      const loreBlock = activeBooks.length > 0
+        ? activeBooks.map(b => `[${b.name}]\n${b.entries.map(e => e.content).join('\n\n')}`).join('\n\n')
+        : '';
+
+      // Build the system context
+      const contextParts: string[] = [];
+
+      // Main prompt from preset (character identity)
+      const mainPrompt = activePreset?.settings?.main;
+      if (mainPrompt && typeof mainPrompt === 'string') {
+        contextParts.push(mainPrompt.replace(/\{\{char\}\}/g, settings.characterName).replace(/\{\{user\}\}/g, settings.userName));
+      }
+
+      // Variable state
+      if (varBlock) {
+        contextParts.push(varBlock);
+      }
+
+      // Active lorebooks
+      if (loreBlock) {
+        contextParts.push(`## 生效的世界书\n${loreBlock}`);
+      }
+
+      // Format instructions
+      const fmtPrompt = settings.formatPromptTemplate || DEFAULT_FORMAT_PROMPT;
+      if (fmtPrompt) {
+        contextParts.push(fmtPrompt.replace(/\{\{char\}\}/g, settings.characterName).replace(/\{\{user\}\}/g, settings.userName));
+      }
+
+      const systemContext = contextParts.join('\n\n');
+
       const { messages } = assemblePrompt({
         userInput: userText,
         history: updatedChat.messages,
         preset: activePreset!,
-        lorebooks: lorebooks.filter((l) => activeLorebookIds.has(l.id)),
+        lorebooks: activeBooks,
         userName: settings.userName,
         characterName: settings.characterName,
         extraVariables: updatedChat.variables,
-        formatPrompt: settings.formatPromptTemplate,
+        formatPrompt: systemContext,
       });
 
       parser.start();
