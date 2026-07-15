@@ -1,0 +1,258 @@
+/* ============================================================
+   ZoneInfoModal — Block/zone coefficient details
+   ============================================================ */
+
+.zone-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: overlay-in var(--duration-normal) var(--ease-out);
+  padding: var(--space-4);
+}
+
+.zone-modal {
+  width: 100%;
+  max-width: 420px;
+  background: var(--surface-1);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg), var(--shadow-glow);
+  animation: modal-in var(--duration-normal) var(--ease-out);
+  overflow: hidden;
+}
+
+/* Header */
+.zm-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.zm-header-icon {
+  color: var(--accent-400);
+  flex-shrink: 0;
+}
+
+.zm-header-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  flex: 1;
+  min-width: 0;
+}
+
+.zm-zone-name {
+  font-size: var(--text-base);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.zm-zone-type {
+  font-size: var(--text-xs);
+  color: var(--accent-400);
+  font-weight: 500;
+}
+
+.zm-close {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all var(--duration-fast) var(--ease-out);
+}
+
+.zm-close:hover {
+  color: var(--text-primary);
+  background: var(--surface-3);
+  border-color: var(--border-default);
+}
+
+/* Coefficient cards */
+.zm-coeff-section {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+}
+
+.zm-coeff-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-3);
+  background: var(--surface-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+}
+
+.zm-coeff-label {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.zm-coeff-value {
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  font-family: var(--font-mono);
+}
+
+.zm-coeff--positive {
+  color: var(--success);
+}
+
+.zm-coeff--negative {
+  color: var(--warning);
+}
+
+.zm-coeff-match {
+  font-size: var(--text-lg);
+  font-weight: 600;
+  color: var(--success);
+}
+
+.zm-coeff--mismatch {
+  color: var(--warning);
+}
+
+/* Power calculation */
+.zm-power-calc {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-5);
+  margin: 0 var(--space-5);
+  background: var(--surface-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  flex-wrap: wrap;
+}
+
+.zm-power-row {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.zm-power-row--result {
+  padding: var(--space-2) var(--space-3);
+  background: rgba(0, 212, 255, 0.08);
+  border: 1px solid rgba(0, 212, 255, 0.2);
+  border-radius: var(--radius-sm);
+}
+
+.zm-power-label {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.zm-power-value {
+  font-size: var(--text-lg);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.zm-power-value--effective {
+  color: var(--accent-400);
+  font-size: var(--text-xl);
+}
+
+.zm-power-op {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+/* Description */
+.zm-desc {
+  padding: var(--space-4) var(--space-5);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  line-height: 1.7;
+}
+
+/* Rule hint */
+.zm-rule-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin: 0 var(--space-5) var(--space-4);
+  padding: var(--space-3);
+  background: rgba(139, 92, 246, 0.06);
+  border: 1px solid rgba(139, 92, 246, 0.15);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+.zm-rule-hint svg {
+  flex-shrink: 0;
+  color: var(--purple-400);
+  margin-top: 1px;
+}
+
+/* Fusion rate */
+.zm-fusion {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-5);
+  margin: 0 var(--space-5) var(--space-4);
+  background: var(--surface-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+}
+
+.zm-fusion-label {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.zm-fusion-value {
+  font-size: var(--text-2xl);
+  font-weight: 700;
+}
+
+.zm-fusion-value--warn {
+  color: var(--warning);
+}
+
+.zm-fusion-value--high {
+  color: var(--danger);
+}
+
+.zm-fusion-note {
+  font-size: var(--text-xs);
+  color: var(--danger);
+  text-align: center;
+  line-height: 1.5;
+}
+
+/* Mobile */
+@media (max-width: 767px) {
+  .zone-modal {
+    max-width: 100%;
+  }
+}

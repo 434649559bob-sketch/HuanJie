@@ -1,0 +1,58 @@
+/* ============================================================
+   GameLayout — Three-column game interface
+   Left: Player info panel (collapsible)
+   Center: Story content + input
+   Right: Drawer trigger column + slide-out panels
+   ============================================================ */
+
+.game-layout {
+  display: flex;
+  width: 100%;
+  height: 100dvh;
+  overflow: hidden;
+  position: relative;
+  background:
+    radial-gradient(ellipse at 20% 50%, rgba(0, 200, 255, 0.03) 0%, transparent 60%),
+    radial-gradient(ellipse at 80% 50%, rgba(139, 92, 246, 0.03) 0%, transparent 60%),
+    var(--surface-0);
+}
+
+/* World-state tint */
+.game-layout--game {
+  --layer-real-opacity: 0.35;
+  --layer-game-opacity: 1;
+}
+
+.game-layout--real {
+  --layer-real-opacity: 1;
+  --layer-game-opacity: 0.35;
+}
+
+/* When fusion >= 70%, all layers fully lit */
+.game-layout--fused {
+  --layer-real-opacity: 1;
+  --layer-game-opacity: 1;
+}
+
+/* Scanline overlay — subtle game-world texture */
+.game-layout::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 999;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 0, 0, 0.015) 2px,
+    rgba(0, 0, 0, 0.015) 4px
+  );
+}
+
+/* Mobile: stack vertically, hide side panels by default */
+@media (max-width: 767px) {
+  .game-layout {
+    flex-direction: column;
+  }
+}
