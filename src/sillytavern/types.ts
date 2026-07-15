@@ -221,7 +221,7 @@ vars标签中输出本回合明确发生变化的变量，JSON格式：
 - 只输出变化的变量，未变的不要列出
 - HP/MP变化需基于文本中的伤害/恢复描述推断合理数值`;
 
-export const DEFAULT_TAGS = ['maintext', 'option', 'sum', 'vars', 'thinking', 'think'] as const;
+export const DEFAULT_TAGS = ['maintext', 'option', 'sum', 'vars', 'thinking', 'think', 'UpdateVariable'] as const;
 export const DEFAULT_OPAQUE_TAGS = ['thinking', 'think'] as const;
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -314,18 +314,40 @@ export function createDefaultPreset(): Omit<ChatPreset, 'id' | 'createdAt' | 'up
       max_context_unlocked: false,
       chat_completion_source: 'openai',
       openai_model: 'gpt-3.5-turbo',
-      main: `你是{{char}}，一位身处双世界交汇点的冒险者。现实与虚拟游戏世界正在融合，你需要在两个世界中同时应对挑战。根据变量状态、世界信息和历史对话推进剧情。
+      main: `你是{{char}}，一位身处双世界交汇点的冒险者。现实与虚拟游戏世界正在融合，你需要在两个世界中同时应对挑战。根据当前状态、世界信息和历史对话推进剧情。
 
-## 每轮输出格式（必须严格遵守）
+## 每轮输出格式
 <thinking>你的战术推理或角色心理活动</thinking>
 <maintext>本回合完整叙事正文，可多段落</maintext>
 <option>选项A（战斗向）
 选项B（探索向）
 选项C（社交或策略向）</option>
 <sum>本回合一言总结</sum>
-<vars>{"变化的变量": 新值}</vars>
 
-选项至少2个，覆盖不同风格，不要重复上一轮的选项模式。`,
+## 变量更新（必须输出）
+在回复末尾输出变量更新块。分析本轮剧情中发生的变化，然后用JSON Patch格式更新变量。
+
+<UpdateVariable>
+<Analysis>分析本轮发生了哪些变化，哪些变量需要更新</Analysis>
+<JSONPatch>
+[
+  {"op":"replace","path":"/player/hp","value":680},
+  {"op":"delta","path":"/player/xp","value":500},
+  {"op":"replace","path":"/location/game","value":"昆仑墟·剑冢"},
+  {"op":"remove","path":"/inventory/0"}
+]
+</JSONPatch>
+</UpdateVariable>
+
+## JSON Patch操作说明
+- replace: 替换变量值（数字、文本、对象）
+- delta: 对数值变量增减（正数加、负数减）
+- insert: 向数组或对象插入新元素
+- remove: 删除变量或数组元素
+- move: 移动变量位置
+- 路径使用JSON Pointer格式，如 /player/hp 表示 player.hp 变量
+- 只输出真正变化的变量，不要列出未变化的
+- HP/MP变化需基于文本中的伤害/恢复描述推断合理数值`,
       nsfw: '',
       jailbreak: '',
       enhanceDefinitions: '',

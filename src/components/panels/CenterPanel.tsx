@@ -3,7 +3,7 @@ import type { ActionEntry } from '../../App';
 import { useToast } from '../ui/ToastProvider';
 import { useSillytavern } from '../../hooks/useSillytavern';
 import { runMacroPipeline } from '../../sillytavern/variable-macros';
-import { buildDefsMap } from '../../sillytavern/variable-engine';
+import { buildDefsMap, stripUpdateVariable } from '../../sillytavern/variable-engine';
 import { getVariableManager } from '../../sillytavern/database';
 import { applyRegexes, collectRegexes } from '../../sillytavern/regex-engine';
 import type { VarDefinition } from '../../sillytavern/variable-types';
@@ -99,9 +99,11 @@ export default function CenterPanel({ isInGame, actionLog, onClearActionLog }: C
     const options = msg.parsed?.options ?? [];
     const thinking = msg.parsed?.thinking ?? '';
 
+    // Strip UpdateVariable block from display
+    const cleanText = stripUpdateVariable(rawMaintext);
     // Apply variable macro replacement
     const vars = st.activeChat?.variables ?? {};
-    const replacedText = runMacroPipeline(rawMaintext, vars, defsMap).text;
+    const replacedText = runMacroPipeline(cleanText, vars, defsMap).text;
 
     // Apply display-side regexes (preset controls how output is formatted)
     const regexDisabled = (window as any).__DISABLE_REGEX__;

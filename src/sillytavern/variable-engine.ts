@@ -318,3 +318,52 @@ export function buildDefsMap(manager: VarManagerState): Map<string, VarDefinitio
   }
   return map;
 }
+
+// ============================================================
+// MVU-style JSON Patch parsing (from <UpdateVariable> block)
+// ============================================================
+
+/**
+ * Parse a JSON Patch array from AI output and convert to VarCommand[].
+ * Supports: replace, delta, insert, remove, move
+ * Paths use JSON Pointer format (/player/hp) → converted to dot-path (player.hp)
+ */
+export function parseJSONPatch(raw: string): VarCommand[] {
+  // Try to extract JSON array from within the text
+  const trimmed = raw.trim();
+  let jsonStr = trimmed;
+
+  // Try to find JSON array in the text
+  const arrMatch = trimmed.match(/\[[\s\S]*\]/);
+  if (arrMatch) jsonStr = arrMatch[0];
+
+  try {
+    const arr = JSON.parse(jsonStr);
+    if (!Array.isArray(arr)) return [];
+    return arr.map((item: any) => {
+      const op = item.op || 'replace';
+      // Convert JSON Pointer path (/player/hp) to dot-path (player.hp)
+      let path = (item.path || '').replace(/^\/+/, '').replace(/\//g, '.');
+      if (item.from) {
+        const fromPath = (item.from || '').replace(/^\/+/, '').replace(/\//g, '.');
+        path = `${fromPath} → ${path}`;
+      }
+      return {
+        op: op === 'delta' ? 'add' : op === 'replace' ? 'set' : op,
+        path,
+        value: op === 'delta' ? item.value : item.value,
+        reason: 'AI JSON Patch',
+        display: op === 'delta' ? `${item.value > 0 ? '+' : ''}${item.value} ${path}` : undefined,
+      } as VarCommand;
+    });
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Strip <UpdateVariable>...</UpdateVariable> from text for display.
+ */
+export function stripUpdateVariable(text: string): string {
+  return text.replace(/<UpdateVariable>[\s\S]*?<\/UpdateVariable>/gi, '').trim();
+}
