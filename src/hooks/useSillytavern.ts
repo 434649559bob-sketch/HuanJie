@@ -4,7 +4,7 @@ import { useApiRouter } from './useApiRouter';
 import { applyParsedToChat } from '../sillytavern/variables';
 import { assemblePrompt } from '../sillytavern/prompt-assembler';
 import { callSecondaryExtraction } from '../sillytavern/variable-extractor';
-import { applyVarCommands, buildDefsMap, parseJSONPatch } from '../sillytavern/variable-engine';
+import { applyVarCommands, buildDefsMap } from '../sillytavern/variable-engine';
 import { applyRegexes, collectRegexes } from '../sillytavern/regex-engine';
 import { syncAllState, formatStateForPrompt } from '../sillytavern/state-sync';
 import { getVariableManager } from '../sillytavern/database';
@@ -409,19 +409,6 @@ export function useSillytavern() {
         parsed
       );
 
-      // Parse MVU-style JSON Patch from <UpdateVariable> block
-      const updateVarBlock = parsed.unknown?.['UpdateVariable'] || '';
-      if (updateVarBlock) {
-        const jsonPatchVars = parseJSONPatch(updateVarBlock);
-        if (jsonPatchVars.length > 0) {
-          const vm = await getVariableManager();
-          const defsMap2 = vm ? buildDefsMap(vm) : new Map();
-          const result = applyVarCommands(nextVariables, jsonPatchVars, defsMap2);
-          nextVariables = result.variables;
-          snapshot = JSON.parse(JSON.stringify(nextVariables));
-        }
-      }
-
       let apiUsed: 'primary' | 'secondary' = 'primary';
       let secondaryVars: VarCommand[] = [];
 
@@ -435,11 +422,10 @@ export function useSillytavern() {
         if (narrativeText) {
           try {
             const vm = await getVariableManager();
-            const defs = vm ? [...vm.definitions] : [];
             const extraction = await callSecondaryExtraction(
               { baseUrl: secConfig.baseUrl, apiKey: secConfig.apiKey, model: secConfig.model },
               narrativeText,
-              defs,
+              statePrompt,
               nextVariables,
             );
             if (extraction && extraction.vars.length > 0) {
