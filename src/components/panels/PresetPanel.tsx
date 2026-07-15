@@ -56,14 +56,16 @@ export default function PresetPanel() {
       const preset: ChatPreset = {
         id: crypto.randomUUID(),
         name, description, settings,
-        createdAt: Date.now(), updatedAt: Date.now(),
+        regexes: [], createdAt: Date.now(), updatedAt: Date.now(),
       };
       await savePreset(preset);
       setPresets(prev => [...prev, preset]);
     } else if (editId) {
+      const existing = presets.find(p => p.id === editId);
       const preset: ChatPreset = {
         id: editId, name, description, settings,
-        createdAt: Date.now(), updatedAt: Date.now(),
+        regexes: existing?.regexes ?? [],
+        createdAt: existing?.createdAt ?? Date.now(), updatedAt: Date.now(),
       };
       await savePreset(preset);
       setPresets(prev => prev.map(p => p.id === editId ? preset : p));

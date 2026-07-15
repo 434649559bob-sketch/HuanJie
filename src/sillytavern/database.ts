@@ -9,7 +9,7 @@ import { DEFAULT_SETTINGS } from './types';
 import { createDefaultVarManager } from './variable-engine';
 
 const DB_NAME = 'SillyTavernWebDB';
-const DB_VERSION = 4;
+const DB_VERSION = 5;
 
 class AppDatabase extends Dexie {
   lorebooks!: Table<Lorebook>;
@@ -62,6 +62,30 @@ class AppDatabase extends Dexie {
       if (count === 0) {
         const defaultVm = createDefaultVarManager();
         await tx.table('variableManagers').put(defaultVm);
+      }
+    });
+    this.version(5).stores({
+      lorebooks: 'id, name, updatedAt',
+      presets: 'id, name, updatedAt',
+      settings: 'key',
+      chats: 'id, name, updatedAt',
+      variableManagers: 'key, updatedAt',
+    }).upgrade(async tx => {
+      // Add regexes: [] to existing presets
+      const presets = await tx.table('presets').toCollection().toArray();
+      for (const p of presets) {
+        if (!Array.isArray((p as any).regexes)) {
+          (p as any).regexes = [];
+          await tx.table('presets').put(p);
+        }
+      }
+      // Add globalRegexes: [] to existing settings
+      const allSettings = await tx.table('settings').toCollection().toArray();
+      for (const s of allSettings) {
+        if (!Array.isArray((s as any).globalRegexes)) {
+          (s as any).globalRegexes = [];
+          await tx.table('settings').put(s);
+        }
       }
     });
   }

@@ -152,6 +152,7 @@ export function importPreset(data: Record<string, any>): Omit<ChatPreset, 'id' |
     name,
     description: data.description,
     settings: data,
+    regexes: [],
   };
 }
 

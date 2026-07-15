@@ -117,6 +117,25 @@ export interface MatchedEntry {
   matchedKeywords: string[];
 }
 
+// ========== Regex Types ==========
+
+export interface RegexRule {
+  id: string;
+  name: string;
+  enabled: boolean;
+  findRegex: string;
+  replaceString: string;
+  /** Where to apply: user_input, ai_output, slash_command, world_info */
+  source: { userInput: boolean; aiOutput: boolean; slashCommand: boolean; worldInfo: boolean };
+  /** Destination: display (for rendering in UI) or prompt (before sending to AI) */
+  destination: 'display' | 'prompt' | 'both';
+  /** Only apply when message depth is between these (null = no limit) */
+  minDepth: number | null;
+  maxDepth: number | null;
+  runOnEdit: boolean;
+  order: number;
+}
+
 // ========== Preset Types ==========
 
 /** SillyTavern-compatible chat completion preset.
@@ -128,6 +147,8 @@ export interface ChatPreset {
   description?: string;
   /** Raw SillyTavern preset fields. For OpenAI presets this includes temp_openai, prompt_order, prompts, etc. */
   settings: Record<string, any>;
+  /** Preset-specific regex rules */
+  regexes: RegexRule[];
   createdAt: number;
   updatedAt: number;
 }
@@ -166,6 +187,8 @@ export interface AppSettings {
   customTags: string[];
   formatPromptTemplate: string;
   thinkingDisplay: 'fold' | 'hide' | 'inline';
+  /** Global regex rules (apply to all presets) */
+  globalRegexes: RegexRule[];
 }
 
 export const DEFAULT_FORMAT_PROMPT = `## 你的角色
@@ -221,6 +244,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   customTags: ['maintext', 'option', 'sum', 'vars', 'thinking', 'think'],
   formatPromptTemplate: DEFAULT_FORMAT_PROMPT,
   thinkingDisplay: 'fold',
+  globalRegexes: [],
 };
 
 // ========== Chat Types ==========
@@ -273,7 +297,8 @@ export const DEFAULT_PROMPT_ORDER = [
 export function createDefaultPreset(): Omit<ChatPreset, 'id' | 'createdAt' | 'updatedAt'> {
   return {
     name: '默认预设',
-    description: 'SillyTavern 兼容的默认 OpenAI 预设',
+    description: '基础角色扮演预设，包含完整输出格式指令',
+    regexes: [],
     settings: {
       temp_openai: 0.8,
       freq_pen_openai: 0,
