@@ -155,7 +155,7 @@ export default function SettingsPanel() {
   };
 
   // prompt entries
-  const promptEntries = (presetForm.prompts || []) as Array<{ identifier: string; role?: string; content?: string; enabled?: boolean }>;
+  const promptEntries = (presetForm.prompts || []) as Array<{ identifier: string; name?: string; role?: string; content?: string; enabled?: boolean; marker?: boolean; system_prompt?: boolean }>;
   const updatePromptEntry = (idx: number, patch: Partial<typeof promptEntries[number]>) => {
     const next = [...promptEntries];
     next[idx] = { ...next[idx], ...patch };
@@ -163,7 +163,7 @@ export default function SettingsPanel() {
   };
   const togglePromptEntry = (idx: number) => updatePromptEntry(idx, { enabled: !promptEntries[idx]?.enabled });
   const addPromptEntry = () => {
-    setPresetForm({ ...presetForm, prompts: [...promptEntries, { identifier: 'custom_' + Date.now(), role: 'system', content: '', enabled: true }] });
+    setPresetForm({ ...presetForm, prompts: [...promptEntries, { identifier: 'custom_' + Date.now(), name: '新条目', role: 'system', content: '', enabled: true, marker: false }] });
   };
   const deletePromptEntry = (idx: number) => {
     setPresetForm({ ...presetForm, prompts: promptEntries.filter((_, i) => i !== idx) });
@@ -351,28 +351,45 @@ export default function SettingsPanel() {
                   {renderField('Max Tokens', <input className="sp-input" type="number" min={64} max={32768} step={64} value={presetForm.openai_max_tokens ?? 2048} onChange={e => setPresetForm({ ...presetForm, openai_max_tokens: Number(e.target.value) })} />)}
                   {renderField('Max Context', <input className="sp-input" type="number" min={512} max={128000} step={512} value={presetForm.openai_max_context ?? 4096} onChange={e => setPresetForm({ ...presetForm, openai_max_context: Number(e.target.value) })} />)}
                 </div>
-                {renderField('Main Prompt', <textarea className="sp-input sp-textarea" rows={6} value={presetForm.main ?? ''} onChange={e => setPresetForm({ ...presetForm, main: e.target.value })} />)}
-                {renderField('Jailbreak', <textarea className="sp-input sp-textarea" rows={2} value={presetForm.jailbreak ?? ''} onChange={e => setPresetForm({ ...presetForm, jailbreak: e.target.value })} />)}
+                <p className="sp-hint" style={{ margin: 0, fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>提示词内容在「条目」标签中编辑——预设由条目按顺序组装而成。</p>
               </div>
             )}
 
             {presetEditorTab === 'entries' && (
               <div className="sp-section">
                 <div className="sp-section-header">
-                  <span>Prompt 条目 ({promptEntries.length})</span>
+                  <span>条目列表（按此顺序组装 Prompt）</span>
                   <button className="sp-btn sp-btn--sm" onClick={addPromptEntry}>+ 新增条目</button>
                 </div>
+                {promptEntries.length === 0 && <div className="sp-empty">暂未定义任何条目。条目是预设的核心——它们按顺序组装成发送给AI的完整Prompt。</div>}
                 {promptEntries.map((e, i) => (
                   <div key={i} className={`sp-entry-card ${e.enabled === false ? 'sp-entry-card--disabled' : ''}`}>
                     <div className="sp-entry-top">
-                      <label className="sp-check"><input type="checkbox" checked={e.enabled !== false} onChange={() => togglePromptEntry(i)} />{e.identifier}</label>
+                      <div className="sp-entry-top-left">
+                        <button className="sp-icon-btn sp-icon-btn--sm" onClick={() => { if (i > 0) { const next = [...promptEntries]; [next[i-1], next[i]] = [next[i], next[i-1]]; setPresetForm({ ...presetForm, prompts: next }); } }} disabled={i === 0} title="上移">↑</button>
+                        <button className="sp-icon-btn sp-icon-btn--sm" onClick={() => { if (i < promptEntries.length - 1) { const next = [...promptEntries]; [next[i], next[i+1]] = [next[i+1], next[i]]; setPresetForm({ ...presetForm, prompts: next }); } }} disabled={i === promptEntries.length - 1} title="下移">↓</button>
+                        <label className="sp-check"><input type="checkbox" checked={e.enabled !== false} onChange={() => togglePromptEntry(i)} /><strong>{e.identifier}</strong></label>
+                        <span className="sp-entry-badge">{e.marker ? '动态' : '文本'}</span>
+                      </div>
                       <button className="sp-icon-btn sp-icon-btn--danger" onClick={() => deletePromptEntry(i)}>✕</button>
                     </div>
-                    <input className="sp-input" value={e.identifier} onChange={ev => updatePromptEntry(i, { identifier: ev.target.value })} placeholder="标识符" />
-                    <select className="sp-input" value={e.role ?? 'system'} onChange={ev => updatePromptEntry(i, { role: ev.target.value })}>
-                      <option value="system">system</option><option value="user">user</option><option value="assistant">assistant</option>
-                    </select>
-                    <textarea className="sp-input sp-textarea" rows={3} value={e.content ?? ''} onChange={ev => updatePromptEntry(i, { content: ev.target.value })} placeholder="条目内容…" />
+                    <div className="sp-entry-body">
+                      <div className="sp-field-row">
+                        {renderField('标识符', <input className="sp-input" value={e.identifier} onChange={ev => updatePromptEntry(i, { identifier: ev.target.value })} placeholder="main" />)}
+                        {renderField('名称', <input className="sp-input" value={e.name ?? ''} onChange={ev => updatePromptEntry(i, { name: ev.target.value })} placeholder="Main Prompt" />)}
+                      </div>
+                      <div className="sp-field-row">
+                        {renderField('角色', <select className="sp-input" value={e.role ?? 'system'} onChange={ev => updatePromptEntry(i, { role: ev.target.value })}>
+                          <option value="system">system</option><option value="user">user</option><option value="assistant">assistant</option>
+                        </select>)}
+                        <label className="sp-check" style={{ alignSelf: 'flex-end', marginBottom: 2 }}>
+                          <input type="checkbox" checked={!!e.marker} onChange={ev => updatePromptEntry(i, { marker: ev.target.checked || undefined })} />动态占位（无content，运行时替换）
+                        </label>
+                      </div>
+                      {!e.marker && (
+                        <textarea className="sp-input sp-textarea" rows={3} value={e.content ?? ''} onChange={ev => updatePromptEntry(i, { content: ev.target.value })} placeholder="条目文本内容…" />
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>

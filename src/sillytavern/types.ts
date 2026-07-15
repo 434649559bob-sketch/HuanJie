@@ -338,7 +338,31 @@ export function createDefaultPreset(): Omit<ChatPreset, 'id' | 'createdAt' | 'up
       group_nudge_prompt: '',
       scenario_format: '',
       personality_format: '',
-      prompts: [],
+      prompts: [
+        { identifier: 'main', name: 'Main Prompt', role: 'system' as const, content: `你是{{char}}，一位身处双世界交汇点的冒险者。现实与虚拟游戏世界正在融合，你需要在两个世界中同时应对挑战。根据变量状态、世界信息和历史对话推进剧情。
+
+## 每轮输出格式（必须严格遵守）
+<thinking>你的战术推理或角色心理活动</thinking>
+<maintext>本回合完整叙事正文，可多段落</maintext>
+<option>选项A（战斗向）
+选项B（探索向）
+选项C（社交或策略向）</option>
+<sum>本回合一言总结</sum>
+<vars>{"变化的变量": 新值}</vars>
+
+选项至少2个，覆盖不同风格，不要重复上一轮的选项模式。`, system_prompt: true },
+        { identifier: 'nsfw', name: 'Auxiliary Prompt', role: 'system' as const, content: '', system_prompt: true },
+        { identifier: 'jailbreak', name: 'Post-History Instructions', role: 'system' as const, content: '', system_prompt: true },
+        { identifier: 'worldInfoBefore', name: 'World Info (before)', role: 'system' as const, marker: true, system_prompt: true },
+        { identifier: 'charDescription', name: 'Char Description', role: 'system' as const, marker: true, system_prompt: true },
+        { identifier: 'charPersonality', name: 'Char Personality', role: 'system' as const, marker: true, system_prompt: true },
+        { identifier: 'scenario', name: 'Scenario', role: 'system' as const, marker: true, system_prompt: true },
+        { identifier: 'personaDescription', name: 'Persona Description', role: 'system' as const, marker: true, system_prompt: true },
+        { identifier: 'dialogueExamples', name: 'Chat Examples', role: 'system' as const, marker: true, system_prompt: true },
+        { identifier: 'worldInfoAfter', name: 'World Info (after)', role: 'system' as const, marker: true, system_prompt: true },
+        { identifier: 'chatHistory', name: 'Chat History', role: 'system' as const, marker: true, system_prompt: true },
+        { identifier: 'enhanceDefinitions', name: 'Enhance Definitions', role: 'system' as const, content: 'If you have more knowledge of {{char}}, add to the character lore and personality to enhance them but keep the Character Sheet definitions absolute.', system_prompt: true },
+      ],
       prompt_order: DEFAULT_PROMPT_ORDER.map((p) => ({ ...p, enabled: true })),
     },
   };
