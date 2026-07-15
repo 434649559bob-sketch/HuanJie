@@ -5,7 +5,7 @@ import WorldPanel from './WorldPanel';
 import QuestPanel from './QuestPanel';
 import DungeonPanel from './DungeonPanel';
 import SettingsPanel from './SettingsPanel';
-import VariablePanel from './VariablePanel';
+import VariableManager from './VariableManager';
 import LorebookPanel from './LorebookPanel';
 import type { EquipmentItem, EquipmentSet, Gem, InventoryItem, EquipmentSlot, Quest } from '../../App';
 import './RightPanel.css';
@@ -92,7 +92,7 @@ export default function RightPanel({ isInGame: _isInGame, playerMoney, equipment
               : activeFunc === 'quests' ? <QuestPanel quests={quests} />
               : activeFunc === 'characters' ? <ContactsPanel />
               : activeFunc === 'forge' ? <ForgePanel playerMoney={playerMoney} equipment={equipment} ownedEquipment={ownedEquipment} onEnhance={onEnhance} onMoneyChange={onMoneyChange} ownedGems={ownedGems} onSocketGem={onSocketGem} onRemoveGem={onRemoveGem} inventory={inventory} onCraft={onCraft} />
-              : activeFunc === 'variables' ? <VariablePanel />
+              : activeFunc === 'variables' ? <VariableManager />
               : activeFunc === 'lorebooks' ? <LorebookPanel />
               : activeFunc === 'settings' ? <SettingsPanel />
               : (<div className="rp-placeholder"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" opacity="0.2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg><p>{PLACEHOLDER_CONTENT[activeDef.id] || '功能待实现'}</p></div>)}
