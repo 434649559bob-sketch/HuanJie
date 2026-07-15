@@ -3,6 +3,10 @@ import { useStreamParser } from './useStreamParser';
 import { useApiRouter } from './useApiRouter';
 import { applyParsedToChat } from '../sillytavern/variables';
 import { assemblePrompt } from '../sillytavern/prompt-assembler';
+import { callSecondaryExtraction } from '../sillytavern/variable-extractor';
+import { applyVarCommands, buildDefsMap } from '../sillytavern/variable-engine';
+import { getVariableManager } from '../sillytavern/database';
+import type { VarCommand } from '../sillytavern/variable-types';
 import {
   DEFAULT_TAGS,
   DEFAULT_OPAQUE_TAGS,
@@ -333,10 +337,45 @@ export function useSillytavern() {
       }
 
       const { events, parsed } = parser.finish();
-      const { nextVariables, snapshot } = applyParsedToChat(
+      let { nextVariables, snapshot } = applyParsedToChat(
         updatedChat.variables ?? {},
         parsed
       );
+      let apiUsed: 'primary' | 'secondary' = 'primary';
+      let secondaryVars: VarCommand[] = [];
+
+      // ---- Secondary API: post-narrative variable extraction ----
+      const secConfig = settings.api.secondary;
+      if (secConfig?.enabled && secConfig.baseUrl && secConfig.apiKey) {
+        const narrativeText = parsed.maintext || events
+          .filter((e: any) => e.type === 'tag-chunk' && e.tag === 'maintext')
+          .map((e: any) => e.chunk)
+          .join('');
+        if (narrativeText) {
+          try {
+            const vm = await getVariableManager();
+            const defs = vm ? [...vm.definitions] : [];
+            const extraction = await callSecondaryExtraction(
+              { baseUrl: secConfig.baseUrl, apiKey: secConfig.apiKey, model: secConfig.model },
+              narrativeText,
+              defs,
+              nextVariables,
+            );
+            if (extraction && extraction.vars.length > 0) {
+              secondaryVars = extraction.vars;
+              // Apply secondary extraction on top of primary vars
+              const defsMap = vm ? buildDefsMap(vm) : new Map();
+              const result = applyVarCommands(nextVariables, secondaryVars, defsMap);
+              nextVariables = result.variables;
+              apiUsed = 'secondary';
+              // Update snapshot with merged result
+              snapshot = JSON.parse(JSON.stringify(nextVariables));
+            }
+          } catch (e) {
+            console.warn('[useSillytavern] Secondary extraction failed:', e);
+          }
+        }
+      }
 
       const assistantMsg: ChatMessage = {
         id: crypto.randomUUID(),
@@ -348,7 +387,7 @@ export function useSillytavern() {
         timestamp: Date.now(),
         parsed,
         variablesAfter: snapshot,
-        apiUsed: 'primary',
+        apiUsed,
       };
       const finalChat: ChatSession = {
         ...updatedChat,

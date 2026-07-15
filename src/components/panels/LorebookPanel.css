@@ -1,0 +1,61 @@
+/* LorebookPanel */
+.lp-panel { display: flex; flex-direction: column; height: 100%; }
+.lp-loading { display: flex; align-items: center; justify-content: center; height: 100%; color: var(--text-muted); font-size: var(--text-sm); }
+
+.lp-header-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-3); flex-shrink: 0; }
+.lp-count { font-size: var(--text-xs); color: var(--text-muted); }
+
+.lp-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: var(--space-2); }
+
+.lp-card { position: relative; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: var(--surface-2); transition: all var(--duration-fast); overflow: hidden; }
+.lp-card--active { border-color: rgba(139,92,246,0.3); background: rgba(139,92,246,0.04); }
+.lp-card-main { display: flex; align-items: center; padding: var(--space-3); cursor: pointer; gap: var(--space-3); }
+.lp-card-main:hover { background: rgba(255,255,255,0.02); }
+.lp-card-left { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.lp-card-name { font-size: var(--text-sm); font-weight: 600; color: var(--text-primary); }
+.lp-card-meta { font-size: var(--text-xs); color: var(--text-muted); }
+.lp-card-actions { display: flex; gap: 2px; flex-shrink: 0; }
+.lp-card-badge { position: absolute; top: -1px; right: 8px; padding: 1px 8px; background: var(--purple-600); color: #fff; font-size: 9px; font-weight: 600; border-radius: 0 0 var(--radius-sm) var(--radius-sm); }
+
+.lp-empty { text-align: center; padding: var(--space-4); color: var(--text-muted); font-size: var(--text-xs); }
+
+/* Entries */
+.lp-entries { border-top: 1px solid var(--border-subtle); padding: var(--space-3); background: rgba(0,0,0,0.15); }
+.lp-entries-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-2); font-size: var(--text-xs); color: var(--text-muted); }
+
+.lp-entry { padding: var(--space-2); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); margin-bottom: var(--space-1); background: var(--surface-1); }
+.lp-entry:last-child { margin-bottom: 0; }
+.lp-entry-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+.lp-entry-keys { font-size: var(--text-xs); font-weight: 600; color: var(--purple-400); }
+.lp-entry-acts { display: flex; gap: 2px; }
+.lp-entry-content { font-size: var(--text-xs); color: var(--text-secondary); line-height: 1.5; white-space: pre-wrap; }
+
+/* Buttons & icons — reuse PresetPanel patterns */
+.lp-icon-btn { width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center; background: transparent; border: 1px solid transparent; border-radius: var(--radius-sm); cursor: pointer; font-size: 12px; transition: all var(--duration-fast); }
+.lp-icon-btn:hover { background: var(--surface-3); border-color: var(--border-default); }
+.lp-icon-btn--danger:hover { color: var(--danger); }
+
+.lp-btn { padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); font-family: var(--font-ui); font-size: var(--text-xs); font-weight: 500; cursor: pointer; border: 1px solid var(--border-default); background: var(--surface-3); color: var(--text-secondary); transition: all var(--duration-fast); }
+.lp-btn:hover { color: var(--text-primary); border-color: var(--border-strong); }
+.lp-btn--add { border: 1px dashed var(--border-default); background: transparent; color: var(--text-muted); font-size: var(--text-xs); }
+.lp-btn--add:hover { border-color: var(--accent-600); color: var(--accent-400); }
+.lp-btn--primary { background: var(--accent-600); border-color: var(--accent-600); color: #fff; }
+.lp-btn--primary:hover { background: var(--accent-500); }
+.lp-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* Modal */
+.lp-modal-overlay { position: fixed; inset: 0; z-index: var(--z-modal); background: rgba(0,0,0,0.65); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; animation: lp-fade-in var(--duration-fast); }
+.lp-modal { width: min(480px, 90vw); max-height: 80vh; background: var(--surface-1); border: 1px solid var(--border-default); border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); overflow: hidden; display: flex; flex-direction: column; }
+.lp-modal-header { display: flex; align-items: center; justify-content: space-between; padding: var(--space-4); background: var(--surface-2); border-bottom: 1px solid var(--border-subtle); font-weight: 600; }
+.lp-modal-close { width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; background: transparent; border: 1px solid transparent; border-radius: var(--radius-sm); color: var(--text-muted); cursor: pointer; }
+.lp-modal-close:hover { color: var(--text-primary); background: var(--surface-3); }
+.lp-modal-body { flex: 1; overflow-y: auto; padding: var(--space-4); display: flex; flex-direction: column; gap: var(--space-3); }
+.lp-modal-actions { display: flex; gap: var(--space-2); justify-content: flex-end; padding-top: var(--space-3); border-top: 1px solid var(--border-subtle); }
+
+.lp-field { display: flex; flex-direction: column; gap: var(--space-1); }
+.lp-field span { font-size: var(--text-xs); font-weight: 500; color: var(--text-muted); }
+.lp-field input, .lp-field textarea { padding: var(--space-2) var(--space-3); background: var(--surface-1); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); color: var(--text-primary); font-family: var(--font-ui); font-size: var(--text-sm); resize: vertical; }
+.lp-field input:focus, .lp-field textarea:focus { outline: none; border-color: var(--accent-600); }
+.lp-field textarea { font-family: var(--font-mono); font-size: var(--text-xs); }
+
+@keyframes lp-fade-in { from { opacity: 0; } to { opacity: 1; } }
