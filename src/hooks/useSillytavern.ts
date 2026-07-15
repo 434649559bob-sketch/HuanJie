@@ -299,9 +299,10 @@ export function useSillytavern() {
   const sendGameMessage = useCallback(
     async (userText: string, baseChat?: ChatSession) => {
       const chat = baseChat || activeChat;
-      // Reload settings from DB to pick up latest preset/lorebook selections
-      const latestSettings = (await getSettings()) || settings;
-      if (!chat || !latestSettings) return;
+      // Reload settings AND presets from DB to pick up latest selections
+      const [latestSettings, latestPresets] = await Promise.all([getSettings(), getPresets()]);
+      const effectiveSettings = latestSettings || settings;
+      if (!chat || !effectiveSettings) return;
 
       const userMsg: ChatMessage = {
         id: crypto.randomUUID(),
@@ -319,8 +320,8 @@ export function useSillytavern() {
 
       // ---- Build rich context for primary API ----
       // Use the preset selected in latestSettings
-      const effectivePreset = presets.find(p => p.id === latestSettings.activePresetId) ?? presets[0] ?? null;
-      const activeLorebookIds = new Set(latestSettings.activeLorebookIds ?? []);
+      const effectivePreset = latestPresets.find(p => p.id === effectiveSettings.activePresetId) ?? latestPresets[0] ?? null;
+      const activeLorebookIds = new Set(effectiveSettings.activeLorebookIds ?? []);
 
       const activeBooks = lorebooks.filter((l) => activeLorebookIds.has(l.id));
 
@@ -331,14 +332,14 @@ export function useSillytavern() {
         history: updatedChat.messages,
         preset: effectivePreset!,
         lorebooks: activeBooks,
-        userName: latestSettings.userName,
-        characterName: latestSettings.characterName,
+        userName: effectiveSettings.userName,
+        characterName: effectiveSettings.characterName,
         extraVariables: updatedChat.variables,
       });
 
       // Apply prompt-side regexes (global + preset) to all messages
       const regexDisabled = (window as any).__DISABLE_REGEX__;
-      const allRegexes = regexDisabled ? [] : collectRegexes(latestSettings.globalRegexes, effectivePreset?.regexes ?? []);
+      const allRegexes = regexDisabled ? [] : collectRegexes(effectiveSettings.globalRegexes, effectivePreset?.regexes ?? []);
       const regexedMessages = messages.map(m => ({
         ...m,
         content: applyRegexes(allRegexes, m.content, 'prompt'),
@@ -346,7 +347,7 @@ export function useSillytavern() {
 
       // Capture request for debug panel
       const reqId = captureRequest(
-        latestSettings.api.model,
+        effectiveSettings.api.model,
         regexedMessages.map(m => ({ role: m.role, content: m.content }))
       );
       const reqStart = Date.now();
@@ -385,7 +386,7 @@ export function useSillytavern() {
       let secondaryVars: VarCommand[] = [];
 
       // ---- Secondary API: post-narrative variable extraction ----
-      const secConfig = latestSettings.api.secondary;
+      const secConfig = effectiveSettings.api.secondary;
       if (secConfig?.enabled && secConfig.baseUrl && secConfig.apiKey) {
         const narrativeText = parsed.maintext || events
           .filter((e: any) => e.type === 'tag-chunk' && e.tag === 'maintext')
