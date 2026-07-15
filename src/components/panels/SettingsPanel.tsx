@@ -117,12 +117,22 @@ export default function SettingsPanel() {
     input.onchange = async () => {
       const f = input.files?.[0]; if (!f) return;
       try {
+        const rawName = f.name.replace(/\.json$/i, '');
         const data = JSON.parse(await f.text());
-        const imported = importPreset(data);
-        const p: ChatPreset = { ...imported, id: crypto.randomUUID(), createdAt: Date.now(), updatedAt: Date.now() };
+        // Use filename as preset name, fallback to preset data name or ST's data.name
+        const presetName = rawName || data.name || data.preset || '导入的预设';
+        // Normalize ST-native field names to our internal names
+        const normalized = { ...data };
+        if (normalized.temperature !== undefined && normalized.temp_openai === undefined) normalized.temp_openai = normalized.temperature;
+        if (normalized.top_p !== undefined && normalized.top_p_openai === undefined) normalized.top_p_openai = normalized.top_p;
+        if (normalized.frequency_penalty !== undefined && normalized.freq_pen_openai === undefined) normalized.freq_pen_openai = normalized.frequency_penalty;
+        if (normalized.presence_penalty !== undefined && normalized.pres_pen_openai === undefined) normalized.pres_pen_openai = normalized.presence_penalty;
+        if (normalized.repetition_penalty !== undefined && normalized.repetition_penalty_openai === undefined) normalized.repetition_penalty_openai = normalized.repetition_penalty;
+        const imported = importPreset(normalized);
+        const p: ChatPreset = { ...imported, name: presetName, id: crypto.randomUUID(), createdAt: Date.now(), updatedAt: Date.now() };
         await savePreset(p);
         setPresets(prev => [...prev, p]);
-      } catch { alert('导入失败：文件格式不正确'); }
+      } catch (e) { alert('导入失败：文件格式不正确 — ' + (e as Error).message); }
     };
     input.click();
   };
@@ -136,7 +146,13 @@ export default function SettingsPanel() {
   };
   const openPresetEditor = (p: ChatPreset) => {
     setEditingPresetId(p.id);
-    setPresetForm({ ...p.settings, _name: p.name, _desc: p.description || '' });
+    // Normalize ST-native field names to our internal names
+    const s = { ...p.settings };
+    if (s.temperature !== undefined && s.temp_openai === undefined) s.temp_openai = s.temperature;
+    if (s.top_p !== undefined && s.top_p_openai === undefined) s.top_p_openai = s.top_p;
+    if (s.frequency_penalty !== undefined && s.freq_pen_openai === undefined) s.freq_pen_openai = s.frequency_penalty;
+    if (s.presence_penalty !== undefined && s.pres_pen_openai === undefined) s.pres_pen_openai = s.presence_penalty;
+    setPresetForm({ ...s, _name: p.name, _desc: p.description || '' });
     setPresetRegexes([...p.regexes]);
     setPresetEditorTab('params');
     setPage('presetEditor');
@@ -368,8 +384,14 @@ export default function SettingsPanel() {
                       <div className="sp-entry-top-left">
                         <button className="sp-icon-btn sp-icon-btn--sm" onClick={() => { if (i > 0) { const next = [...promptEntries]; [next[i-1], next[i]] = [next[i], next[i-1]]; setPresetForm({ ...presetForm, prompts: next }); } }} disabled={i === 0} title="上移">↑</button>
                         <button className="sp-icon-btn sp-icon-btn--sm" onClick={() => { if (i < promptEntries.length - 1) { const next = [...promptEntries]; [next[i], next[i+1]] = [next[i+1], next[i]]; setPresetForm({ ...presetForm, prompts: next }); } }} disabled={i === promptEntries.length - 1} title="下移">↓</button>
-                        <label className="sp-check"><input type="checkbox" checked={e.enabled !== false} onChange={() => togglePromptEntry(i)} /><strong>{e.identifier}</strong></label>
-                        <span className="sp-entry-badge">{e.marker ? '动态' : '文本'}</span>
+                        <label className="sp-check" style={{ flex: 1, minWidth: 0 }}>
+                          <input type="checkbox" checked={e.enabled !== false} onChange={() => togglePromptEntry(i)} />
+                          <span className="sp-entry-label">
+                            <strong className="sp-entry-name">{e.name || e.identifier}</strong>
+                            <span className="sp-entry-id">{e.identifier}</span>
+                          </span>
+                        </label>
+                        <span className="sp-entry-badge">{e.marker ? '动态' : (e.system_prompt ? '系统' : '自定义')}</span>
                       </div>
                       <button className="sp-icon-btn sp-icon-btn--danger" onClick={() => deletePromptEntry(i)}>✕</button>
                     </div>

@@ -6,7 +6,6 @@ import QuestPanel from './QuestPanel';
 import DungeonPanel from './DungeonPanel';
 import SettingsPanel from './SettingsPanel';
 import VariablePanel from './VariablePanel';
-import PresetPanel from './PresetPanel';
 import LorebookPanel from './LorebookPanel';
 import type { EquipmentItem, EquipmentSet, Gem, InventoryItem, EquipmentSlot, Quest } from '../../App';
 import './RightPanel.css';
@@ -21,7 +20,6 @@ const DocIcon = <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stro
 const StarIcon = <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>;
 const ToolIcon = <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>;
 const VarIcon = <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/><line x1="8" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="12" y2="14"/></svg>;
-const PresetIcon = <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><polygon points="12,2 22,8.5 22,15.5 12,22 2,15.5 2,8.5"/><line x1="12" y1="22" x2="12" y2="15.5"/><polyline points="22,8.5 12,15.5 2,8.5"/></svg>;
 const BookIcon = <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>;
 const SaveIcon = <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17,21 17,13 7,13 7,21"/><polyline points="7,3 7,8 15,8"/></svg>;
 const GearIcon = <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>;
@@ -33,7 +31,6 @@ const FUNCTIONS: FuncDef[] = [
   { id: 'dungeons', label: '副本', category: 'game', icon: StarIcon },
   { id: 'forge', label: '锻造', category: 'game', icon: ToolIcon },
   { id: 'variables', label: '变量', category: 'game', icon: VarIcon },
-  { id: 'presets', label: '预设', category: 'game', icon: PresetIcon },
   { id: 'lorebooks', label: '世界书', category: 'game', icon: BookIcon },
   { id: 'save', label: '存档', category: 'real', icon: SaveIcon },
   { id: 'settings', label: '设置', category: 'real', icon: GearIcon },
@@ -96,7 +93,6 @@ export default function RightPanel({ isInGame: _isInGame, playerMoney, equipment
               : activeFunc === 'characters' ? <ContactsPanel />
               : activeFunc === 'forge' ? <ForgePanel playerMoney={playerMoney} equipment={equipment} ownedEquipment={ownedEquipment} onEnhance={onEnhance} onMoneyChange={onMoneyChange} ownedGems={ownedGems} onSocketGem={onSocketGem} onRemoveGem={onRemoveGem} inventory={inventory} onCraft={onCraft} />
               : activeFunc === 'variables' ? <VariablePanel />
-              : activeFunc === 'presets' ? <PresetPanel />
               : activeFunc === 'lorebooks' ? <LorebookPanel />
               : activeFunc === 'settings' ? <SettingsPanel />
               : (<div className="rp-placeholder"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" opacity="0.2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg><p>{PLACEHOLDER_CONTENT[activeDef.id] || '功能待实现'}</p></div>)}
