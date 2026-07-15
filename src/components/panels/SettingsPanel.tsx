@@ -259,17 +259,28 @@ export default function SettingsPanel() {
             orderArr = g.order || [];
           }
 
-          const saveOrder = async (next: any[]) => {
-            const updated = { ...p, settings: { ...p.settings, prompt_order: next }, updatedAt: Date.now() };
+          const savePresetEdit = async (patch: Partial<ChatPreset>) => {
+            const updated = { ...p, ...patch, updatedAt: Date.now() };
             await savePreset(updated);
             setPresets(prev => prev.map(x => x.id === editingPresetId ? updated : x));
           };
+
+          const saveSettings = (s: Record<string, any>) => savePresetEdit({ settings: { ...p.settings, ...s } } as any);
+
+          const saveOrder = (next: any[]) => saveSettings({ prompt_order: next });
 
           const toggleEntry = (identifier: string) => {
             const next = orderArr.map((item: any) =>
               item.identifier === identifier ? { ...item, enabled: !item.enabled } : item
             );
             saveOrder(next);
+          };
+
+          const updateEntryContent = (identifier: string, content: string) => {
+            const prompts = (p.settings.prompts || []).map((e: any) =>
+              e.identifier === identifier ? { ...e, content } : e
+            );
+            saveSettings({ prompts });
           };
 
           const moveEntry = (idx: number, dir: -1 | 1) => {
@@ -296,14 +307,15 @@ export default function SettingsPanel() {
               {editorTab === 'params' && (
                 <div className="sp-form">
                   <div className="sp-field-row">
-                    {field('Temperature', <input className="sp-input" type="number" min={0} max={2} step={0.05} value={p.settings.temp_openai ?? p.settings.temperature ?? 0.8} readOnly />)}
-                    {field('Top P', <input className="sp-input" type="number" min={0} max={1} step={0.05} value={p.settings.top_p_openai ?? p.settings.top_p ?? 0.9} readOnly />)}
+                    {field('Temperature', <input className="sp-input" type="number" min={0} max={2} step={0.05} value={p.settings.temp_openai ?? p.settings.temperature ?? 0.8} onChange={e => saveSettings({ temp_openai: Number(e.target.value) })} />)}
+                    {field('Top P', <input className="sp-input" type="number" min={0} max={1} step={0.05} value={p.settings.top_p_openai ?? p.settings.top_p ?? 0.9} onChange={e => saveSettings({ top_p_openai: Number(e.target.value) })} />)}
                   </div>
                   <div className="sp-field-row">
-                    {field('Max Tokens', <input className="sp-input" type="number" value={p.settings.openai_max_tokens ?? 2048} readOnly />)}
-                    {field('Max Context', <input className="sp-input" type="number" value={p.settings.openai_max_context ?? 4096} readOnly />)}
+                    {field('Max Tokens', <input className="sp-input" type="number" min={64} max={32768} step={64} value={p.settings.openai_max_tokens ?? 2048} onChange={e => saveSettings({ openai_max_tokens: Number(e.target.value) })} />)}
+                    {field('Max Context', <input className="sp-input" type="number" min={512} max={128000} step={512} value={p.settings.openai_max_context ?? 4096} onChange={e => saveSettings({ openai_max_context: Number(e.target.value) })} />)}
                   </div>
-                  <div className="sp-active-hint">参数来自导入的预设文件，不可编辑。用导入功能替换预设即可更新。</div>
+                  {p.settings.freq_pen_openai !== undefined && field('Freq Penalty', <input className="sp-input" type="number" min={-2} max={2} step={0.1} value={p.settings.freq_pen_openai ?? 0} onChange={e => saveSettings({ freq_pen_openai: Number(e.target.value) })} />)}
+                  {p.settings.pres_pen_openai !== undefined && field('Pres Penalty', <input className="sp-input" type="number" min={-2} max={2} step={0.1} value={p.settings.pres_pen_openai ?? 0} onChange={e => saveSettings({ pres_pen_openai: Number(e.target.value) })} />)}
                 </div>
               )}
 
@@ -335,7 +347,11 @@ export default function SettingsPanel() {
                           {marker ? (
                             <div className="sp-entry-content sp-entry-content--muted">[动态占位符 — 运行时由系统注入内容]</div>
                           ) : (
-                            <pre className="sp-entry-content">{content}</pre>
+                            <textarea className="sp-input sp-textarea"
+                              rows={Math.min(8, Math.max(2, content.split('\n').length))}
+                              value={content}
+                              onChange={e => updateEntryContent(item.identifier, e.target.value)}
+                              onBlur={() => {}} />
                           )}
                         </div>
                       </div>
@@ -349,18 +365,28 @@ export default function SettingsPanel() {
                   {(!p.regexes || p.regexes.length === 0) && (
                     <div className="sp-empty">此预设不含正则规则。</div>
                   )}
-                  {(p.regexes || []).map((r: RegexRule, i: number) => (
-                    <div key={r.id || i} className={`sp-entry-card ${r.enabled ? '' : 'sp-entry-card--off'}`}>
-                      <div className="sp-entry-top">
-                        <span className="sp-check"><strong>{r.name}</strong></span>
-                        <span className="sp-badge-sm">{r.destination}</span>
+                  {(p.regexes || []).map((r: RegexRule, i: number) => {
+                    const toggleRegex = () => {
+                      const next = [...(p.regexes || [])];
+                      next[i] = { ...next[i], enabled: !next[i].enabled };
+                      savePresetEdit({ regexes: next } as any);
+                    };
+                    return (
+                      <div key={r.id || i} className={`sp-entry-card ${r.enabled ? '' : 'sp-entry-card--off'}`}>
+                        <div className="sp-entry-top">
+                          <label className="sp-check" onClick={e => e.stopPropagation()}>
+                            <input type="checkbox" checked={r.enabled} onChange={toggleRegex} />
+                            <strong>{r.name}</strong>
+                          </label>
+                          <span className="sp-badge-sm">{r.destination}</span>
+                        </div>
+                        <div className="sp-entry-body">
+                          <div className="sp-entry-id-text">匹配: {r.findRegex.slice(0, 120)}{r.findRegex.length > 120 ? '…' : ''}</div>
+                          <div className="sp-entry-id-text">替换: {r.replaceString.slice(0, 120)}{r.replaceString.length > 120 ? '…' : ''}</div>
+                        </div>
                       </div>
-                      <div className="sp-entry-body">
-                        <div className="sp-entry-id-text">匹配: {r.findRegex.slice(0, 100)}{r.findRegex.length > 100 ? '…' : ''}</div>
-                        <div className="sp-entry-id-text">替换: {r.replaceString.slice(0, 100)}{r.replaceString.length > 100 ? '…' : ''}</div>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </>
               )}
             </div>
