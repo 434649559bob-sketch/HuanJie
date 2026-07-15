@@ -296,8 +296,9 @@ export function useSillytavern() {
   const router = useApiRouter(settings?.api ?? DEFAULT_SETTINGS.api);
 
   const sendGameMessage = useCallback(
-    async (userText: string) => {
-      if (!activeChat || !settings) return;
+    async (userText: string, baseChat?: ChatSession) => {
+      const chat = baseChat || activeChat;
+      if (!chat || !settings) return;
 
       const userMsg: ChatMessage = {
         id: crypto.randomUUID(),
@@ -306,8 +307,8 @@ export function useSillytavern() {
         timestamp: Date.now(),
       };
       const updatedChat: ChatSession = {
-        ...activeChat,
-        messages: [...activeChat.messages, userMsg],
+        ...chat,
+        messages: [...chat.messages, userMsg],
         updatedAt: Date.now(),
       };
       await db.chats.put(updatedChat);
@@ -368,11 +369,19 @@ export function useSillytavern() {
         formatPrompt: systemContext,
       });
 
+      // Inject format reminder as last system message to keep it fresh each turn
+      const formatReminder: { role: 'system'; content: string } = {
+        role: 'system',
+        content: `本轮输出必须包含所有XML标签：<thinking>思考</thinking> <maintext>正文</maintext> <option>至少2个选项</option> <sum>总结</sum> <vars>变化的变量JSON</vars>。选项要多样化（战斗/探索/社交/策略），每行一个。`,
+      };
+      // Insert reminder right before the last (user) message
+      const finalMessages = [...messages.slice(0, -1), formatReminder, messages[messages.length - 1]];
+
       parser.start();
       try {
         await router.sendStream({
           task: 'story',
-          messages,
+          messages: finalMessages,
           onChunk: (delta) => parser.feed(delta),
         });
       } catch (e) {
@@ -470,20 +479,25 @@ export function useSillytavern() {
 
   const regenerateLast = useCallback(async () => {
     if (!activeChat) return;
-    const lastUserIdx = [...activeChat.messages]
-      .reverse()
-      .findIndex((m) => m.role === 'user');
+    const msgs = [...activeChat.messages];
+    // Find index of last user message
+    let lastUserIdx = -1;
+    for (let i = msgs.length - 1; i >= 0; i--) {
+      if (msgs[i].role === 'user') { lastUserIdx = i; break; }
+    }
     if (lastUserIdx < 0) return;
-    const targetIdx = activeChat.messages.length - 1 - lastUserIdx;
-    const truncated = activeChat.messages.slice(0, targetIdx);
-    const next: ChatSession = {
+    const userText = msgs[lastUserIdx].content;
+    // Truncate: remove last user message + everything after (assistant replies)
+    const truncatedMsgs = msgs.slice(0, lastUserIdx);
+    const truncatedChat: ChatSession = {
       ...activeChat,
-      messages: truncated,
+      messages: truncatedMsgs,
       updatedAt: Date.now(),
     };
-    await db.chats.put(next);
-    setChats((prev) => prev.map((c) => (c.id === next.id ? next : c)));
-    await sendGameMessage(activeChat.messages[targetIdx].content);
+    await db.chats.put(truncatedChat);
+    setChats((prev) => prev.map((c) => (c.id === truncatedChat.id ? truncatedChat : c)));
+    // Pass truncated chat explicitly so sendGameMessage doesn't use stale activeChat
+    await sendGameMessage(userText, truncatedChat);
   }, [activeChat, sendGameMessage]);
 
   const setChatVariables = useCallback(
