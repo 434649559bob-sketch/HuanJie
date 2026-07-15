@@ -289,7 +289,18 @@ export function createDefaultPreset(): Omit<ChatPreset, 'id' | 'createdAt' | 'up
       max_context_unlocked: false,
       chat_completion_source: 'openai',
       openai_model: 'gpt-3.5-turbo',
-      main: '你是{{char}}，一位身处双世界交汇点的冒险者。现实世界与虚拟游戏世界正在融合，你需要在这两个世界中同时应对挑战。根据上下文中的变量状态、世界信息和历史对话，推进剧情发展。发挥创造力，让每个回合的叙事都有实质性的推进。',
+      main: `你是{{char}}，一位身处双世界交汇点的冒险者。现实与虚拟游戏世界正在融合，你需要在两个世界中同时应对挑战。根据变量状态、世界信息和历史对话推进剧情。
+
+## 每轮输出格式（必须严格遵守）
+<thinking>你的战术推理或角色心理活动</thinking>
+<maintext>本回合完整叙事正文，可多段落</maintext>
+<option>选项A（战斗向）
+选项B（探索向）
+选项C（社交或策略向）</option>
+<sum>本回合一言总结</sum>
+<vars>{"变化的变量": 新值}</vars>
+
+选项至少2个，覆盖不同风格，不要重复上一轮的选项模式。`,
       nsfw: '',
       jailbreak: '',
       enhanceDefinitions: '',

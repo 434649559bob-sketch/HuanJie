@@ -11,7 +11,6 @@ import {
   DEFAULT_TAGS,
   DEFAULT_OPAQUE_TAGS,
   DEFAULT_SETTINGS,
-  DEFAULT_FORMAT_PROMPT,
   type AppSettings,
   type ChatPreset,
   type ChatSession,
@@ -350,12 +349,6 @@ export function useSillytavern() {
         contextParts.push(`## 生效的世界书\n${loreBlock}`);
       }
 
-      // Format instructions
-      const fmtPrompt = settings.formatPromptTemplate || DEFAULT_FORMAT_PROMPT;
-      if (fmtPrompt) {
-        contextParts.push(fmtPrompt.replace(/\{\{char\}\}/g, settings.characterName).replace(/\{\{user\}\}/g, settings.userName));
-      }
-
       const systemContext = contextParts.join('\n\n');
 
       const { messages } = assemblePrompt({
@@ -369,19 +362,11 @@ export function useSillytavern() {
         formatPrompt: systemContext,
       });
 
-      // Inject format reminder as last system message to keep it fresh each turn
-      const formatReminder: { role: 'system'; content: string } = {
-        role: 'system',
-        content: `本轮输出必须包含所有XML标签：<thinking>思考</thinking> <maintext>正文</maintext> <option>至少2个选项</option> <sum>总结</sum> <vars>变化的变量JSON</vars>。选项要多样化（战斗/探索/社交/策略），每行一个。`,
-      };
-      // Insert reminder right before the last (user) message
-      const finalMessages = [...messages.slice(0, -1), formatReminder, messages[messages.length - 1]];
-
       parser.start();
       try {
         await router.sendStream({
           task: 'story',
-          messages: finalMessages,
+          messages,
           onChunk: (delta) => parser.feed(delta),
         });
       } catch (e) {
