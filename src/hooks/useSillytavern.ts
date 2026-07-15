@@ -6,6 +6,7 @@ import { assemblePrompt } from '../sillytavern/prompt-assembler';
 import { callSecondaryExtraction } from '../sillytavern/variable-extractor';
 import { applyVarCommands, buildDefsMap } from '../sillytavern/variable-engine';
 import { getVariableManager } from '../sillytavern/database';
+import { captureRequest, captureResponse } from '../components/panels/DevPanel';
 import type { VarCommand } from '../sillytavern/variable-types';
 import {
   DEFAULT_TAGS,
@@ -366,6 +367,13 @@ export function useSillytavern() {
         formatPrompt: systemContext,
       });
 
+      // Capture request for debug panel
+      const reqId = captureRequest(
+        latestSettings.api.model,
+        messages.map(m => ({ role: m.role, content: m.content }))
+      );
+      const reqStart = Date.now();
+
       parser.start();
       try {
         await router.sendStream({
@@ -375,10 +383,23 @@ export function useSillytavern() {
         });
       } catch (e) {
         parser.reset();
+        captureResponse(reqId, '', {}, Date.now() - reqStart, undefined, (e as Error).message);
         throw e;
       }
 
       const { events, parsed } = parser.finish();
+      const reqDuration = Date.now() - reqStart;
+
+      // Capture response for debug panel
+      const rawText = events.map((e: any) => e.chunk || '').join('');
+      captureResponse(reqId, rawText, {
+        maintext: parsed.maintext || '',
+        thinking: parsed.thinking || '',
+        options: (parsed.options || []).join('\n'),
+        sum: parsed.sum || '',
+        varsRaw: parsed.varsRaw || '',
+      }, reqDuration);
+
       let { nextVariables, snapshot } = applyParsedToChat(
         updatedChat.variables ?? {},
         parsed
