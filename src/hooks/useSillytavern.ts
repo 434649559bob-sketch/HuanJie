@@ -6,6 +6,7 @@ import { assemblePrompt } from '../sillytavern/prompt-assembler';
 import { callSecondaryExtraction } from '../sillytavern/variable-extractor';
 import { applyVarCommands, buildDefsMap } from '../sillytavern/variable-engine';
 import { applyRegexes, collectRegexes } from '../sillytavern/regex-engine';
+import { syncAllState, formatStateForPrompt } from '../sillytavern/state-sync';
 import { getVariableManager } from '../sillytavern/database';
 import { captureRequest, captureResponse } from '../components/panels/DevPanel';
 import type { VarCommand } from '../sillytavern/variable-types';
@@ -325,8 +326,31 @@ export function useSillytavern() {
 
       const activeBooks = lorebooks.filter((l) => activeLorebookIds.has(l.id));
 
-      // Let the preset's own prompts + prompt_order control the format entirely.
-      // Only inject variable state via extraVariables (already handled by assemblePrompt).
+      // ── Sync full frontend state into chat variables ──
+      const gameState = (window as any).__GAME_STATE__ || {};
+      const syncedVars = syncAllState({
+        player: gameState.player || {},
+        timeLocation: gameState.timeLocation || {},
+        zoneInfo: gameState.zoneInfo || {},
+        realZoneInfo: gameState.realZoneInfo || {},
+        equipment: gameState.equipment || {},
+        ownedEquipment: gameState.ownedEquipment || [],
+        fashion: gameState.fashion || {},
+        ownedFashion: gameState.ownedFashion || [],
+        fashionNudeSlots: gameState.fashionNudeSlots || [],
+        appearanceSummary: gameState.appearanceSummary || '',
+        inventory: gameState.inventory || [],
+        ownedGems: gameState.ownedGems || [],
+        quests: gameState.quests || [],
+        contacts: gameState.contacts || [],
+        isInGame: gameState.isInGame ?? true,
+      });
+      const mergedVars = { ...syncedVars, ...updatedChat.variables };
+      updatedChat.variables = mergedVars;
+      await db.chats.put(updatedChat);
+      const statePrompt = formatStateForPrompt(mergedVars);
+
+      // Let the preset control the format. Inject state as extra context.
       const { messages } = assemblePrompt({
         userInput: userText,
         history: updatedChat.messages,
@@ -334,7 +358,8 @@ export function useSillytavern() {
         lorebooks: activeBooks,
         userName: effectiveSettings.userName,
         characterName: effectiveSettings.characterName,
-        extraVariables: updatedChat.variables,
+        extraVariables: mergedVars,
+        formatPrompt: statePrompt,
       });
 
       // Apply prompt-side regexes (global + preset) to all messages

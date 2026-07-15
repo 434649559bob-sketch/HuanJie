@@ -14,5 +14,6 @@ export { applyVarCommands, applyCommand, resolveAllVariables, coerceValue, forma
 export type { ApplyResult } from './variable-engine';
 export * from './variable-macros';
 export * from './variable-extractor';
+export * from './state-sync';
 
 export const VERSION = '3.0.0';

@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import type { PlayerState, TimeLocationState, ZoneInfo, RealZoneInfo, EquipmentSet, EquipmentItem, FashionSet, FashionItem, EquipmentSlot, InventoryItem, ActionEntry, Gem, Quest } from '../../App';
 import LeftPanel from '../panels/LeftPanel';
 import CenterPanel from '../panels/CenterPanel';
@@ -41,6 +42,28 @@ interface GameLayoutProps {
 }
 
 export default function GameLayout(props: GameLayoutProps) {
+  // Publish full state globally for the variable system to read
+  useEffect(() => {
+    (window as any).__GAME_STATE__ = {
+      player: props.player,
+      timeLocation: props.timeLocation,
+      zoneInfo: props.zoneInfo,
+      realZoneInfo: props.realZoneInfo,
+      equipment: props.equipment,
+      ownedEquipment: props.ownedEquipment,
+      fashion: props.fashion,
+      ownedFashion: props.ownedFashion,
+      fashionNudeSlots: props.fashionNudeSlots,
+      appearanceSummary: props.appearanceSummary,
+      inventory: props.inventory,
+      ownedGems: props.ownedGems,
+      quests: props.quests,
+      isInGame: props.isInGame,
+      contacts: (window as any).__GAME_STATE__?.contacts || [],
+      dungeons: (window as any).__GAME_STATE__?.dungeons || [],
+    };
+  });
+
   return (
     <div className={`game-layout${props.isInGame ? ' game-layout--game' : ' game-layout--real'}${props.timeLocation.fusionRate >= 70 ? ' game-layout--fused' : ''}`}>
       <LeftPanel {...props} />
