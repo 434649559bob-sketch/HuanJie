@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 
 // ── global capture store ──
 
@@ -75,7 +76,7 @@ export function DebugModal() {
         API调试{logs[0] ? ` (${logs[0].request.messages.length}msgs)` : ''} <span style={{opacity:0.4,fontSize:9}}>{__GIT_HASH__}</span>
       </button>
 
-      {open && (
+      {open && createPortal(
         <div className="dm-overlay" onClick={() => setOpen(false)}>
           <div className="dm-modal" onClick={e => e.stopPropagation()}>
             <div className="dm-header">
@@ -149,7 +150,8 @@ export function DebugModal() {
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );
