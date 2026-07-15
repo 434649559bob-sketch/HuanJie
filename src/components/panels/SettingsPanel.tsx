@@ -1,12 +1,31 @@
 import { useState, useEffect, useCallback } from 'react';
-import { DEFAULT_SETTINGS, type AppSettings, type ApiSettings } from '../../sillytavern/types';
+import {
+  DEFAULT_SETTINGS,
+  type AppSettings,
+  type ApiSettings,
+  type ChatPreset,
+  type RegexRule,
+  createDefaultPreset,
+} from '../../sillytavern/types';
 import { testConnection, fetchModels } from '../../sillytavern/api-tools';
-import { getSettings, saveSettings, initializeDatabase } from '../../sillytavern/database';
+import { importPreset } from '../../sillytavern/importer';
+import {
+  getSettings, saveSettings, initializeDatabase,
+  getPresets, savePreset, deletePreset as deletePresetDb,
+} from '../../sillytavern/database';
 import './SettingsPanel.css';
 
+// ── helpers ──
+
+type Page = 'api' | 'presets';
+
+// ── component ──
+
 export default function SettingsPanel() {
-  const [settings, setSettings] = useState<AppSettings>(() => ({ ...DEFAULT_SETTINGS }));
   const [loaded, setLoaded] = useState(false);
+  const [settings, setSettings] = useState<AppSettings>(() => ({ ...DEFAULT_SETTINGS }));
+  const [presets, setPresets] = useState<ChatPreset[]>([]);
+  const [page, setPage] = useState<Page>('api');
 
   // API test state
   const [testPrim, setTestPrim] = useState<string | null>(null);
@@ -21,8 +40,9 @@ export default function SettingsPanel() {
   useEffect(() => {
     (async () => {
       await initializeDatabase();
-      const s = await getSettings();
+      const [s, p] = await Promise.all([getSettings(), getPresets()]);
       if (s) setSettings({ ...DEFAULT_SETTINGS, ...s });
+      setPresets(p);
       setLoaded(true);
     })();
   }, []);
@@ -33,6 +53,11 @@ export default function SettingsPanel() {
     setSettings(prev => { const next = { ...prev, api: { ...prev.api, ...patch } }; persist(next); return next; });
   }, [persist]);
 
+  const updateSettings = useCallback((patch: Partial<AppSettings>) => {
+    setSettings(prev => { const next = { ...prev, ...patch }; persist(next); return next; });
+  }, [persist]);
+
+  // ── API ──
   const handleFetch = async (target: 'primary' | 'secondary') => {
     const api = target === 'primary' ? settings.api : { baseUrl: settings.api.secondary?.baseUrl ?? '', apiKey: settings.api.secondary?.apiKey ?? '' };
     if (!api.baseUrl) return;
@@ -43,7 +68,6 @@ export default function SettingsPanel() {
     sm(models);
     sf(false);
   };
-
   const handleTest = async (target: 'primary' | 'secondary') => {
     const api = target === 'primary'
       ? { baseUrl: settings.api.baseUrl, apiKey: settings.api.apiKey, model: settings.api.model }
@@ -56,63 +80,168 @@ export default function SettingsPanel() {
     sf(false);
   };
 
+  // ── Presets ──
+  const handleSelectPreset = async (id: string) => updateSettings({ activePresetId: id });
+
+  const handleNewPreset = async () => {
+    const d = createDefaultPreset();
+    const p: ChatPreset = { ...d, id: crypto.randomUUID(), createdAt: Date.now(), updatedAt: Date.now() };
+    await savePreset(p);
+    setPresets(prev => [...prev, p]);
+  };
+
+  const handleImportPreset = () => {
+    const input = document.createElement('input'); input.type = 'file'; input.accept = '.json';
+    input.onchange = async () => {
+      const f = input.files?.[0]; if (!f) return;
+      try {
+        const rawName = f.name.replace(/\.json$/i, '');
+        const data = JSON.parse(await f.text());
+        const presetName = rawName || data.name || '导入的预设';
+        const normalized = { ...data };
+        if (normalized.temperature !== undefined && normalized.temp_openai === undefined) normalized.temp_openai = normalized.temperature;
+        if (normalized.top_p !== undefined && normalized.top_p_openai === undefined) normalized.top_p_openai = normalized.top_p;
+        if (normalized.frequency_penalty !== undefined && normalized.freq_pen_openai === undefined) normalized.freq_pen_openai = normalized.frequency_penalty;
+        if (normalized.presence_penalty !== undefined && normalized.pres_pen_openai === undefined) normalized.pres_pen_openai = normalized.presence_penalty;
+
+        let extractedRegexes: RegexRule[] = [];
+        const promptsArr = normalized.prompts || [];
+        const spIdx = promptsArr.findIndex((p: any) => p.identifier === 'SPresetSettings');
+        if (spIdx >= 0) {
+          try {
+            const sp = JSON.parse(promptsArr[spIdx].content || '{}');
+            const rb = sp.RegexBinding || sp.regexBinding || {};
+            extractedRegexes = (rb.regexes || []).map((r: any) => ({
+              id: r.id || crypto.randomUUID(), name: r.scriptName || '未命名', enabled: !r.disabled,
+              findRegex: r.findRegex || '', replaceString: r.replaceString || '',
+              source: { userInput: true, aiOutput: true, slashCommand: false, worldInfo: false },
+              destination: (r.promptOnly && !r.markdownOnly) ? 'prompt' : (!r.promptOnly && r.markdownOnly) ? 'display' : 'both',
+              minDepth: r.minDepth ?? null, maxDepth: r.maxDepth ?? null,
+              runOnEdit: r.runOnEdit ?? false, order: 0,
+            }));
+          } catch { /* skip */ }
+        }
+
+        let flatOrder = normalized.prompt_order;
+        if (Array.isArray(flatOrder) && flatOrder.length > 0 && Array.isArray(flatOrder[0]?.order)) {
+          const g = flatOrder.find((x: any) => x.character_id === 100001) || flatOrder[0];
+          flatOrder = g.order || [];
+        }
+        if (flatOrder) normalized.prompt_order = flatOrder;
+
+        const imported = importPreset(normalized);
+        const p: ChatPreset = { ...imported, name: presetName, regexes: extractedRegexes, id: crypto.randomUUID(), createdAt: Date.now(), updatedAt: Date.now() };
+        await savePreset(p);
+        setPresets(prev => [...prev, p]);
+      } catch (e) { alert('导入失败：' + (e as Error).message); }
+    };
+    input.click();
+  };
+
+  const handleDeletePreset = async (id: string) => {
+    if (!confirm('删除此预设？')) return;
+    await deletePresetDb(id);
+    setPresets(prev => prev.filter(p => p.id !== id));
+    if (settings.activePresetId === id) updateSettings({ activePresetId: null });
+  };
+
   const field = (label: string, child: React.ReactNode) => (
     <label className="sp-field"><span className="sp-label">{label}</span>{child}</label>
   );
 
   if (!loaded) return <div className="sp-loading">加载中…</div>;
 
+  const activePreset = presets.find(p => p.id === settings.activePresetId);
+
   return (
     <div className="sp-panel">
-      <div className="sp-main" style={{ padding: 0 }}>
-        <div className="sp-section">
-          <h3 className="sp-section-title">🔌 主 API</h3>
-          {field('Base URL', <input className="sp-input sp-input--mono" value={settings.api.baseUrl} onChange={e => updateApi({ baseUrl: e.target.value })} placeholder="https://api.openai.com/v1" />)}
-          {field('API Key', <input className="sp-input sp-input--mono" type="password" value={settings.api.apiKey} onChange={e => updateApi({ apiKey: e.target.value })} placeholder="sk-..." />)}
-          {field('Model', <div className="sp-model-row">
-            <div className="sp-model-select-wrap">
-              {primModels.length > 0 ? (
-                <select className="sp-input sp-input--mono" value={settings.api.model} onChange={e => updateApi({ model: e.target.value })}>
-                  <option value="">-- 选择模型 --</option>
-                  {primModels.map(m => <option key={m} value={m}>{m}</option>)}
-                </select>
-              ) : <input className="sp-input sp-input--mono" value={settings.api.model} onChange={e => updateApi({ model: e.target.value })} placeholder="手动输入" />}
-            </div>
-            <button className="sp-btn sp-btn--fetch" onClick={() => handleFetch('primary')} disabled={fetchingPrim}>{fetchingPrim ? '获取中…' : '获取模型'}</button>
-          </div>)}
-          <div className="sp-action-row">
-            <button className="sp-btn sp-btn--test" onClick={() => handleTest('primary')} disabled={testingPrim}>{testingPrim ? '测试中…' : '测试连通性'}</button>
-            {testPrim && <span className={`sp-test-result ${testPrim.startsWith('✅') ? 'sp-test-result--ok' : 'sp-test-result--fail'}`}>{testPrim}</span>}
-          </div>
+      <div className="sp-sidebar">
+        <button className={`sp-nav-item ${page === 'api' ? 'sp-nav-item--active' : ''}`} onClick={() => setPage('api')}>🔌 API 设置</button>
+        <button className={`sp-nav-item ${page === 'presets' ? 'sp-nav-item--active' : ''}`} onClick={() => setPage('presets')}>✦ 预设 ({presets.length})</button>
+      </div>
 
-          <h3 className="sp-section-title" style={{ marginTop: 24 }}>🔍 次 API（变量提取）</h3>
-          <label className="sp-check" style={{ marginBottom: 12 }}>
-            <input type="checkbox" checked={settings.api.secondary?.enabled ?? false} onChange={e => {
-              const enabled = e.target.checked;
-              updateApi({ secondary: enabled ? { enabled: true, baseUrl: settings.api.secondary?.baseUrl ?? settings.api.baseUrl, apiKey: settings.api.secondary?.apiKey ?? '', model: settings.api.secondary?.model ?? settings.api.model } : { ...settings.api.secondary!, enabled: false } });
-            }} />
-            启用 — 正文生成后由次 API 解析提取变量变化，挂了自动 fallback 到主 API
-          </label>
-          {settings.api.secondary?.enabled && <>
-            {field('Base URL', <input className="sp-input sp-input--mono" value={settings.api.secondary?.baseUrl ?? ''} onChange={e => updateApi({ secondary: { ...settings.api.secondary!, baseUrl: e.target.value } })} placeholder="https://api.deepseek.com/v1" />)}
-            {field('API Key', <input className="sp-input sp-input--mono" type="password" value={settings.api.secondary?.apiKey ?? ''} onChange={e => updateApi({ secondary: { ...settings.api.secondary!, apiKey: e.target.value } })} />)}
+      <div className="sp-main">
+        {/* ======= API SETTINGS ======= */}
+        {page === 'api' && (
+          <div className="sp-section">
+            <h3 className="sp-section-title">主 API</h3>
+            {field('Base URL', <input className="sp-input sp-input--mono" value={settings.api.baseUrl} onChange={e => updateApi({ baseUrl: e.target.value })} placeholder="https://api.openai.com/v1" />)}
+            {field('API Key', <input className="sp-input sp-input--mono" type="password" value={settings.api.apiKey} onChange={e => updateApi({ apiKey: e.target.value })} placeholder="sk-..." />)}
             {field('Model', <div className="sp-model-row">
               <div className="sp-model-select-wrap">
-                {secModels.length > 0 ? (
-                  <select className="sp-input sp-input--mono" value={settings.api.secondary?.model ?? ''} onChange={e => updateApi({ secondary: { ...settings.api.secondary!, model: e.target.value } })}>
+                {primModels.length > 0 ? (
+                  <select className="sp-input sp-input--mono" value={settings.api.model} onChange={e => updateApi({ model: e.target.value })}>
                     <option value="">-- 选择模型 --</option>
-                    {secModels.map(m => <option key={m} value={m}>{m}</option>)}
+                    {primModels.map(m => <option key={m} value={m}>{m}</option>)}
                   </select>
-                ) : <input className="sp-input sp-input--mono" value={settings.api.secondary?.model ?? ''} onChange={e => updateApi({ secondary: { ...settings.api.secondary!, model: e.target.value } })} placeholder="手动输入" />}
+                ) : <input className="sp-input sp-input--mono" value={settings.api.model} onChange={e => updateApi({ model: e.target.value })} placeholder="手动输入" />}
               </div>
-              <button className="sp-btn sp-btn--fetch" onClick={() => handleFetch('secondary')} disabled={fetchingSec}>{fetchingSec ? '获取中…' : '获取模型'}</button>
+              <button className="sp-btn sp-btn--fetch" onClick={() => handleFetch('primary')} disabled={fetchingPrim}>{fetchingPrim ? '获取中…' : '获取模型'}</button>
             </div>)}
-            <div className="sp-action-row" style={{ marginTop: 8 }}>
-              <button className="sp-btn sp-btn--test" onClick={() => handleTest('secondary')} disabled={testingSec}>{testingSec ? '测试中…' : '测试连通性'}</button>
-              {testSec && <span className={`sp-test-result ${testSec.startsWith('✅') ? 'sp-test-result--ok' : 'sp-test-result--fail'}`}>{testSec}</span>}
+            <div className="sp-action-row">
+              <button className="sp-btn sp-btn--test" onClick={() => handleTest('primary')} disabled={testingPrim}>{testingPrim ? '测试中…' : '测试连通性'}</button>
+              {testPrim && <span className={`sp-test-result ${testPrim.startsWith('✅') ? 'sp-test-result--ok' : 'sp-test-result--fail'}`}>{testPrim}</span>}
             </div>
-          </>}
-        </div>
+
+            <h3 className="sp-section-title" style={{ marginTop: 24 }}>次 API（变量提取）</h3>
+            <label className="sp-check" style={{ marginBottom: 12 }}>
+              <input type="checkbox" checked={settings.api.secondary?.enabled ?? false} onChange={e => {
+                const en = e.target.checked;
+                updateApi({ secondary: en ? { enabled: true, baseUrl: settings.api.secondary?.baseUrl ?? settings.api.baseUrl, apiKey: settings.api.secondary?.apiKey ?? '', model: settings.api.secondary?.model ?? settings.api.model } : { ...settings.api.secondary!, enabled: false } });
+              }} />
+              启用 — 正文生成后由次 API 解析提取变量变化，失败自动 fallback
+            </label>
+            {settings.api.secondary?.enabled && <>
+              {field('Base URL', <input className="sp-input sp-input--mono" value={settings.api.secondary?.baseUrl ?? ''} onChange={e => updateApi({ secondary: { ...settings.api.secondary!, baseUrl: e.target.value } })} placeholder="https://api.deepseek.com/v1" />)}
+              {field('API Key', <input className="sp-input sp-input--mono" type="password" value={settings.api.secondary?.apiKey ?? ''} onChange={e => updateApi({ secondary: { ...settings.api.secondary!, apiKey: e.target.value } })} />)}
+              {field('Model', <div className="sp-model-row">
+                <div className="sp-model-select-wrap">
+                  {secModels.length > 0 ? (
+                    <select className="sp-input sp-input--mono" value={settings.api.secondary?.model ?? ''} onChange={e => updateApi({ secondary: { ...settings.api.secondary!, model: e.target.value } })}>
+                      <option value="">-- 选择模型 --</option>
+                      {secModels.map(m => <option key={m} value={m}>{m}</option>)}
+                    </select>
+                  ) : <input className="sp-input sp-input--mono" value={settings.api.secondary?.model ?? ''} onChange={e => updateApi({ secondary: { ...settings.api.secondary!, model: e.target.value } })} placeholder="手动输入" />}
+                </div>
+                <button className="sp-btn sp-btn--fetch" onClick={() => handleFetch('secondary')} disabled={fetchingSec}>{fetchingSec ? '获取中…' : '获取模型'}</button>
+              </div>)}
+              <div className="sp-action-row" style={{ marginTop: 8 }}>
+                <button className="sp-btn sp-btn--test" onClick={() => handleTest('secondary')} disabled={testingSec}>{testingSec ? '测试中…' : '测试连通性'}</button>
+                {testSec && <span className={`sp-test-result ${testSec.startsWith('✅') ? 'sp-test-result--ok' : 'sp-test-result--fail'}`}>{testSec}</span>}
+              </div>
+            </>}
+          </div>
+        )}
+
+        {/* ======= PRESETS ======= */}
+        {page === 'presets' && (
+          <div className="sp-section">
+            <div className="sp-section-header">
+              <span>预设列表</span>
+              <div className="sp-header-btns">
+                <button className="sp-btn sp-btn--sm" onClick={handleNewPreset}>+ 新建</button>
+                <button className="sp-btn sp-btn--sm" onClick={handleImportPreset}>📥 导入</button>
+              </div>
+            </div>
+            {activePreset && (
+              <div className="sp-active-hint">当前使用：<strong>{activePreset.name}</strong></div>
+            )}
+            {presets.map(p => (
+              <div key={p.id} className={`sp-preset-card ${settings.activePresetId === p.id ? 'sp-preset-card--active' : ''}`}
+                   onClick={() => handleSelectPreset(p.id)}>
+                <div className="sp-preset-info">
+                  <span className="sp-preset-name">{p.name}</span>
+                  <span className="sp-preset-meta">{p.description || '无描述'} · 条目 {p.settings.prompts?.length || 0} · 正则 {p.regexes?.length || 0}</span>
+                </div>
+                <div className="sp-preset-acts">
+                  {settings.activePresetId === p.id && <span className="sp-badge">使用中</span>}
+                  <button className="sp-icon-btn sp-icon-btn--danger" onClick={e => { e.stopPropagation(); handleDeletePreset(p.id); }}>🗑</button>
+                </div>
+              </div>
+            ))}
+            {presets.length === 0 && <div className="sp-empty">暂无预设。点「+ 新建」创建默认预设，或「📥 导入」ST 预设 JSON。</div>}
+          </div>
+        )}
       </div>
     </div>
   );
