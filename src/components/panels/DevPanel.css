@@ -44,3 +44,35 @@
 .dv-raw summary { font-size: var(--text-xs); color: var(--text-muted); cursor: pointer; }
 .dv-raw-text { margin-top: var(--space-1); padding: var(--space-2); font-size: 10px; color: var(--text-muted); white-space: pre-wrap; word-break: break-word; max-height: 300px; overflow-y: auto; background: var(--surface-1); border-radius: var(--radius-sm); }
 .dv-error { padding: var(--space-2); font-size: var(--text-xs); color: var(--danger); background: rgba(239,68,68,0.05); border-radius: var(--radius-sm); }
+
+/* ── Debug Strip (in CenterPanel) ── */
+.ds-strip { border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); overflow: hidden; margin-bottom: var(--space-1); }
+.ds-strip--empty { padding: var(--space-1) var(--space-2); background: transparent; border-style: dashed; display: flex; align-items: center; gap: var(--space-2); }
+.ds-strip--error { border-color: rgba(239,68,68,0.3); }
+.ds-label { font-size: var(--text-xs); color: var(--text-muted); }
+.ds-hint { font-size: 10px; color: var(--text-muted); }
+.ds-bar { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-1) var(--space-2); cursor: pointer; background: var(--surface-2); font-size: var(--text-xs); user-select: none; }
+.ds-bar:hover { background: var(--surface-3); }
+.ds-model { color: var(--accent-400); font-weight: 500; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ds-stat { color: var(--text-muted); white-space: nowrap; font-size: 10px; }
+.ds-stat--ok { color: var(--success); }
+.ds-stat--err { color: var(--danger); }
+.ds-stat--pending { color: var(--warning); }
+.ds-expand { color: var(--text-muted); font-size: 10px; }
+
+.ds-body { padding: var(--space-2); background: var(--surface-0); border-top: 1px solid var(--border-subtle); max-height: 300px; overflow-y: auto; }
+.ds-section { margin-bottom: var(--space-2); }
+.ds-section h4 { font-size: 10px; font-weight: 600; color: var(--text-muted); margin: 0 0 4px; }
+
+.ds-msg { margin-bottom: 4px; border-radius: 3px; overflow: hidden; }
+.ds-msg-role { padding: 1px 6px; font-size: 8px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+.ds-msg--system .ds-msg-role { background: rgba(139,92,246,0.15); color: var(--purple-400); }
+.ds-msg--user .ds-msg-role { background: rgba(0,212,255,0.1); color: var(--accent-400); }
+.ds-msg--assistant .ds-msg-role { background: rgba(16,185,129,0.1); color: var(--success); }
+.ds-msg-content { padding: 4px 6px; margin: 0; font-family: var(--font-mono); font-size: 9px; line-height: 1.4; color: var(--text-secondary); white-space: pre-wrap; word-break: break-word; max-height: 150px; overflow-y: auto; background: var(--surface-1); }
+
+.ds-tags { display: flex; flex-direction: column; gap: 4px; }
+.ds-tag { border: 1px solid var(--border-subtle); border-radius: 3px; overflow: hidden; }
+.ds-tag-name { display: block; padding: 1px 6px; font-size: 8px; font-weight: 600; color: var(--warning); background: rgba(245,158,11,0.1); }
+.ds-tag-value { padding: 4px 6px; margin: 0; font-size: 9px; color: var(--text-secondary); white-space: pre-wrap; word-break: break-word; max-height: 100px; overflow-y: auto; }
+.ds-error { padding: var(--space-2); font-size: 10px; color: var(--danger); background: rgba(239,68,68,0.05); border-radius: 3px; }
