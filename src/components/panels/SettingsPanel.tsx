@@ -17,7 +17,7 @@ import './SettingsPanel.css';
 
 // ── helpers ──
 
-type Page = 'api' | 'presets';
+type Page = 'api' | 'presets' | 'presetEditor';
 
 // ── component ──
 
@@ -26,6 +26,7 @@ export default function SettingsPanel() {
   const [settings, setSettings] = useState<AppSettings>(() => ({ ...DEFAULT_SETTINGS }));
   const [presets, setPresets] = useState<ChatPreset[]>([]);
   const [page, setPage] = useState<Page>('api');
+  const [editingPresetId, setEditingPresetId] = useState<string | null>(null);
 
   // API test state
   const [testPrim, setTestPrim] = useState<string | null>(null);
@@ -235,6 +236,7 @@ export default function SettingsPanel() {
                 </div>
                 <div className="sp-preset-acts">
                   {settings.activePresetId === p.id && <span className="sp-badge">使用中</span>}
+                  <button className="sp-icon-btn" onClick={e => { e.stopPropagation(); setEditingPresetId(p.id); setPage('presetEditor'); }} title="编辑条目">✏</button>
                   <button className="sp-icon-btn sp-icon-btn--danger" onClick={e => { e.stopPropagation(); handleDeletePreset(p.id); }}>🗑</button>
                 </div>
               </div>
@@ -242,6 +244,67 @@ export default function SettingsPanel() {
             {presets.length === 0 && <div className="sp-empty">暂无预设。点「+ 新建」创建默认预设，或「📥 导入」ST 预设 JSON。</div>}
           </div>
         )}
+
+        {/* ======= PRESET EDITOR ======= */}
+        {page === 'presetEditor' && editingPresetId && (() => {
+          const p = presets.find(x => x.id === editingPresetId);
+          if (!p) return null;
+          const promptsArr: any[] = p.settings.prompts || [];
+          const promptMap = new Map(promptsArr.map((e: any) => [e.identifier, e]));
+          // Handle both flat and nested prompt_order
+          let orderArr: any[] = p.settings.prompt_order || [];
+          if (orderArr.length > 0 && Array.isArray(orderArr[0]?.order)) {
+            const g = orderArr.find((x: any) => x.character_id === 100001) || orderArr[0];
+            orderArr = g.order || [];
+          }
+
+          const toggleEntry = async (identifier: string) => {
+            const next = orderArr.map((item: any) =>
+              item.identifier === identifier ? { ...item, enabled: !item.enabled } : item
+            );
+            const updated = { ...p, settings: { ...p.settings, prompt_order: next }, updatedAt: Date.now() };
+            await savePreset(updated);
+            setPresets(prev => prev.map(x => x.id === editingPresetId ? updated : x));
+          };
+
+          return (
+            <div className="sp-section">
+              <div className="sp-section-header">
+                <button className="sp-btn sp-btn--sm" onClick={() => { setPage('presets'); setEditingPresetId(null); }}>← 返回</button>
+                <span>{p.name}</span>
+              </div>
+              <div className="sp-active-hint">
+                temp: {p.settings.temp_openai ?? p.settings.temperature ?? 0.8} ·
+                top_p: {p.settings.top_p_openai ?? p.settings.top_p ?? 0.9} ·
+                max_tokens: {p.settings.openai_max_tokens ?? 2048} ·
+                正则: {p.regexes?.length || 0} 条
+              </div>
+              <div className="sp-section-header">
+                <span>条目顺序（按此组装 Prompt）</span>
+              </div>
+              {orderArr.length === 0 && <div className="sp-empty">此预设没有 prompt_order 条目。</div>}
+              {orderArr.map((item: any, i: number) => {
+                const prompt = promptMap.get(item.identifier);
+                const enabled = item.enabled !== false;
+                const content = prompt?.content || '';
+                const name = prompt?.name || item.identifier;
+                const marker = prompt?.marker;
+                return (
+                  <div key={i} className={`sp-entry-row ${enabled ? '' : 'sp-entry-row--disabled'}`}
+                       onClick={() => toggleEntry(item.identifier)}>
+                    <input type="checkbox" checked={enabled} onChange={() => toggleEntry(item.identifier)}
+                           onClick={e => e.stopPropagation()} style={{ accentColor: 'var(--accent-400)', flexShrink: 0 }} />
+                    <div className="sp-entry-text">
+                      <span className="sp-entry-label-text">{name}</span>
+                      <span className="sp-entry-id-text">{item.identifier}{marker ? ' [动态]' : ''}</span>
+                    </div>
+                    <span className="sp-entry-preview">{content.slice(0, 80)}{content.length > 80 ? '…' : ''}</span>
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })()}
       </div>
     </div>
   );
