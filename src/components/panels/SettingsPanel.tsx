@@ -241,7 +241,7 @@ export default function SettingsPanel() {
       apiKey: settings.api.apiKey,
       model: settings.api.model,
     });
-    setTestResultPrimary(result.ok ? '✅ 连接成功' : `❌ 失败: ${result.error || `HTTP ${result.status}`}`);
+    setTestResultPrimary(result.ok ? '✅ 连接成功' : `❌ 失败: ${result.error || `HTTP ${result.status} — ${result.errorBody || '无详情'}`}`);
     setTestingPrimary(false);
   }, [settings.api]);
 
@@ -255,7 +255,7 @@ export default function SettingsPanel() {
       apiKey: sec.apiKey,
       model: sec.model,
     });
-    setTestResultSecondary(result.ok ? '✅ 连接成功' : `❌ 失败: ${result.error || `HTTP ${result.status}`}`);
+    setTestResultSecondary(result.ok ? '✅ 连接成功' : `❌ 失败: ${result.error || `HTTP ${result.status} — ${result.errorBody || '无详情'}`}`);
     setTestingSecondary(false);
   }, [settings.api.secondary]);
 
