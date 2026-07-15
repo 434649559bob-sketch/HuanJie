@@ -76,3 +76,69 @@
 .ds-tag-name { display: block; padding: 1px 6px; font-size: 8px; font-weight: 600; color: var(--warning); background: rgba(245,158,11,0.1); }
 .ds-tag-value { padding: 4px 6px; margin: 0; font-size: 9px; color: var(--text-secondary); white-space: pre-wrap; word-break: break-word; max-height: 100px; overflow-y: auto; }
 .ds-error { padding: var(--space-2); font-size: 10px; color: var(--danger); background: rgba(239,68,68,0.05); border-radius: 3px; }
+
+/* ── Debug Modal ── */
+.dm-overlay {
+  position: fixed; inset: 0; z-index: var(--z-modal);
+  background: rgba(0,0,0,0.7); backdrop-filter: blur(4px);
+  display: flex; align-items: center; justify-content: center;
+}
+.dm-modal {
+  width: min(800px, 95vw); max-height: 85vh;
+  background: var(--surface-1); border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg); box-shadow: var(--shadow-lg);
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.dm-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface-2); border-bottom: 1px solid var(--border-subtle);
+  font-weight: 600; font-size: var(--text-sm);
+}
+.dm-close {
+  width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;
+  background: transparent; border: 1px solid transparent; border-radius: var(--radius-sm);
+  color: var(--text-muted); cursor: pointer; font-size: 14px;
+}
+.dm-close:hover { color: var(--text-primary); background: var(--surface-3); }
+.dm-body { flex: 1; overflow-y: auto; padding: var(--space-3); }
+.dm-empty { text-align: center; padding: var(--space-8); color: var(--text-muted); font-size: var(--text-xs); }
+
+/* Selector */
+.dm-selector { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: var(--space-3); }
+.dm-sel-btn {
+  padding: 2px 10px; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm);
+  background: var(--surface-2); color: var(--text-muted); font-size: 10px; cursor: pointer;
+  font-family: var(--font-mono); white-space: nowrap;
+}
+.dm-sel-btn:hover { border-color: var(--border-default); color: var(--text-secondary); }
+.dm-sel-btn--active { border-color: var(--accent-600); color: var(--accent-400); background: rgba(0,212,255,0.08); }
+.dm-sel-btn--err { border-color: rgba(239,68,68,0.3); }
+
+/* Section */
+.dm-section { margin-bottom: var(--space-3); }
+.dm-section h4 { font-size: var(--text-xs); font-weight: 600; color: var(--text-muted); margin: 0 0 var(--space-2); }
+.dm-error { padding: var(--space-2); font-size: var(--text-xs); color: var(--danger); background: rgba(239,68,68,0.05); border-radius: var(--radius-sm); }
+
+/* Messages */
+.dm-msg { margin-bottom: 6px; border-radius: var(--radius-sm); overflow: hidden; }
+.dm-msg-role { padding: 2px 8px; font-size: 9px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+.dm-msg--system .dm-msg-role { background: rgba(139,92,246,0.15); color: var(--purple-400); }
+.dm-msg--user .dm-msg-role { background: rgba(0,212,255,0.1); color: var(--accent-400); }
+.dm-msg--assistant .dm-msg-role { background: rgba(16,185,129,0.1); color: var(--success); }
+.dm-msg-content {
+  padding: var(--space-2); margin: 0;
+  font-family: var(--font-mono); font-size: 10px; line-height: 1.5;
+  color: var(--text-secondary); white-space: pre-wrap; word-break: break-word;
+  max-height: 200px; overflow-y: auto; background: var(--surface-1);
+}
+
+/* Tags */
+.dm-tags { display: flex; flex-direction: column; gap: 6px; }
+.dm-tag { border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); overflow: hidden; }
+.dm-tag-name { display: block; padding: 2px 8px; font-size: 9px; font-weight: 600; color: var(--warning); background: rgba(245,158,11,0.1); }
+.dm-tag-value { padding: var(--space-2); margin: 0; font-size: 10px; color: var(--text-secondary); white-space: pre-wrap; word-break: break-word; max-height: 120px; overflow-y: auto; }
+
+/* Raw */
+.dm-raw summary { font-size: var(--text-xs); color: var(--text-muted); cursor: pointer; margin-top: var(--space-2); }
+.dm-raw-text { margin-top: 4px; padding: var(--space-2); font-size: 10px; color: var(--text-muted); white-space: pre-wrap; word-break: break-word; max-height: 200px; overflow-y: auto; background: var(--surface-1); border-radius: var(--radius-sm); }

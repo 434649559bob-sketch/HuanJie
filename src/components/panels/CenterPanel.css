@@ -518,3 +518,21 @@
   color: var(--text-muted);
   opacity: 0.6;
 }
+
+/* Debug button */
+.cp-debug-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  font-family: var(--font-ui);
+  font-size: 10px;
+  cursor: pointer;
+  transition: all var(--duration-fast);
+  margin-bottom: 4px;
+}
+.cp-debug-btn:hover { color: var(--accent-400); border-color: rgba(0,212,255,0.25); background: rgba(0,212,255,0.05); }

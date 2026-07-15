@@ -7,7 +7,6 @@ import DungeonPanel from './DungeonPanel';
 import SettingsPanel from './SettingsPanel';
 import VariablePanel from './VariablePanel';
 import LorebookPanel from './LorebookPanel';
-import DevPanel from './DevPanel';
 import type { EquipmentItem, EquipmentSet, Gem, InventoryItem, EquipmentSlot, Quest } from '../../App';
 import './RightPanel.css';
 
@@ -34,7 +33,6 @@ const FUNCTIONS: FuncDef[] = [
   { id: 'variables', label: '变量', category: 'game', icon: VarIcon },
   { id: 'lorebooks', label: '世界书', category: 'game', icon: BookIcon },
   { id: 'save', label: '存档', category: 'real', icon: SaveIcon },
-  { id: 'dev', label: '调试', category: 'real', icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg> },
   { id: 'settings', label: '设置', category: 'real', icon: GearIcon },
 ];
 
@@ -96,7 +94,6 @@ export default function RightPanel({ isInGame: _isInGame, playerMoney, equipment
               : activeFunc === 'forge' ? <ForgePanel playerMoney={playerMoney} equipment={equipment} ownedEquipment={ownedEquipment} onEnhance={onEnhance} onMoneyChange={onMoneyChange} ownedGems={ownedGems} onSocketGem={onSocketGem} onRemoveGem={onRemoveGem} inventory={inventory} onCraft={onCraft} />
               : activeFunc === 'variables' ? <VariablePanel />
               : activeFunc === 'lorebooks' ? <LorebookPanel />
-              : activeFunc === 'dev' ? <DevPanel />
               : activeFunc === 'settings' ? <SettingsPanel />
               : (<div className="rp-placeholder"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" opacity="0.2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg><p>{PLACEHOLDER_CONTENT[activeDef.id] || '功能待实现'}</p></div>)}
             </div>

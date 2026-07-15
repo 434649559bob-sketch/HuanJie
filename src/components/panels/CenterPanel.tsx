@@ -6,7 +6,7 @@ import { runMacroPipeline } from '../../sillytavern/variable-macros';
 import { buildDefsMap } from '../../sillytavern/variable-engine';
 import { getVariableManager } from '../../sillytavern/database';
 import type { VarDefinition } from '../../sillytavern/variable-types';
-import { DebugStrip } from './DevPanel';
+import { DebugModal } from './DevPanel';
 import './CenterPanel.css';
 
 /* Mock story for initial empty state */
@@ -188,8 +188,7 @@ export default function CenterPanel({ isInGame, actionLog, onClearActionLog }: C
 
       {/* Bottom Area */}
       <section className="cp-input-area">
-        {/* Debug Strip */}
-        <DebugStrip />
+        <DebugModal />
 
         {/* Action Log */}
         <div className={`cp-action-log${actionLog.length > 0 ? ' cp-action-log--has-actions' : ''}`}>
