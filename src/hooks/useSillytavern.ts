@@ -322,41 +322,10 @@ export function useSillytavern() {
       const effectivePreset = presets.find(p => p.id === latestSettings.activePresetId) ?? presets[0] ?? null;
       const activeLorebookIds = new Set(latestSettings.activeLorebookIds ?? []);
 
-      // Load variable definitions for named formatting
-      const vm = await getVariableManager();
-      const defsMap = vm ? buildDefsMap(vm) : new Map();
-
-      // Format variables with their display names
-      const { formatVariablesForPrompt } = await import('../sillytavern/variable-engine');
-      const varBlock = formatVariablesForPrompt(updatedChat.variables ?? {}, defsMap);
-
-      // Format active lorebook content
       const activeBooks = lorebooks.filter((l) => activeLorebookIds.has(l.id));
-      const loreBlock = activeBooks.length > 0
-        ? activeBooks.map(b => `[${b.name}]\n${b.entries.map(e => e.content).join('\n\n')}`).join('\n\n')
-        : '';
 
-      // Build the system context
-      const contextParts: string[] = [];
-
-      // Main prompt from preset (character identity)
-      const mainPrompt = effectivePreset?.settings?.main;
-      if (mainPrompt && typeof mainPrompt === 'string') {
-        contextParts.push(mainPrompt.replace(/\{\{char\}\}/g, latestSettings.characterName).replace(/\{\{user\}\}/g, latestSettings.userName));
-      }
-
-      // Variable state
-      if (varBlock) {
-        contextParts.push(varBlock);
-      }
-
-      // Active lorebooks
-      if (loreBlock) {
-        contextParts.push(`## 生效的世界书\n${loreBlock}`);
-      }
-
-      const systemContext = contextParts.join('\n\n');
-
+      // Let the preset's own prompts + prompt_order control the format entirely.
+      // Only inject variable state via extraVariables (already handled by assemblePrompt).
       const { messages } = assemblePrompt({
         userInput: userText,
         history: updatedChat.messages,
@@ -365,7 +334,6 @@ export function useSillytavern() {
         userName: latestSettings.userName,
         characterName: latestSettings.characterName,
         extraVariables: updatedChat.variables,
-        formatPrompt: systemContext,
       });
 
       // Apply prompt-side regexes (global + preset) to all messages

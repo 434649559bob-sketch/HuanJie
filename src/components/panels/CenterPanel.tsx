@@ -94,16 +94,16 @@ export default function CenterPanel({ isInGame, actionLog, onClearActionLog }: C
   // Render a single message
   const renderMessage = (msg: (typeof displayMessages)[number]) => {
     const isUser = msg.role === 'user';
+    // Display: prefer parsed maintext (XML format), fallback to raw content
     const rawMaintext = isUser ? msg.content : (msg.parsed?.maintext || msg.content);
     const options = msg.parsed?.options ?? [];
     const thinking = msg.parsed?.thinking ?? '';
 
-    // Step 1: Variable macro replacement on plain text
+    // Apply variable macro replacement
     const vars = st.activeChat?.variables ?? {};
     const replacedText = runMacroPipeline(rawMaintext, vars, defsMap).text;
 
-    // Step 2: Apply display-side regexes (may produce HTML)
-    // Check if user disabled regex via localStorage flag
+    // Apply display-side regexes (preset controls how output is formatted)
     const regexDisabled = (window as any).__DISABLE_REGEX__;
     const allRegexes = regexDisabled ? [] : collectRegexes(st.settings?.globalRegexes ?? [], st.activePreset?.regexes ?? []);
     const displayHtml = applyRegexes(allRegexes, replacedText, 'display');
@@ -122,6 +122,7 @@ export default function CenterPanel({ isInGame, actionLog, onClearActionLog }: C
                 <p className="cp-thinking-text">{thinking}</p>
               </details>
             )}
+            {/* Always render via innerHTML — regexes may produce HTML */}
             <div className="cp-block cp-block--narration">
               <div className="cp-text" dangerouslySetInnerHTML={{ __html: displayHtml }} />
             </div>
