@@ -4,16 +4,19 @@
 
 import Dexie, { Table } from 'dexie';
 import type { Lorebook, ChatPreset, AppSettings, ChatSession } from './types';
+import type { VarManagerState } from './variable-types';
 import { DEFAULT_SETTINGS } from './types';
+import { createDefaultVarManager } from './variable-engine';
 
 const DB_NAME = 'SillyTavernWebDB';
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 
 class AppDatabase extends Dexie {
   lorebooks!: Table<Lorebook>;
   presets!: Table<ChatPreset>;
   settings!: Table<AppSettings>;
   chats!: Table<ChatSession>;
+  variableManagers!: Table<VarManagerState>;
 
   constructor() {
     super(DB_NAME);
@@ -47,6 +50,20 @@ class AppDatabase extends Dexie {
         await tx.table('settings').put(s);
       }
     });
+    this.version(4).stores({
+      lorebooks: 'id, name, updatedAt',
+      presets: 'id, name, updatedAt',
+      settings: 'key',
+      chats: 'id, name, updatedAt',
+      variableManagers: 'key, updatedAt',
+    }).upgrade(async tx => {
+      // Seed default variable manager if none exists
+      const count = await tx.table('variableManagers').count();
+      if (count === 0) {
+        const defaultVm = createDefaultVarManager();
+        await tx.table('variableManagers').put(defaultVm);
+      }
+    });
   }
 }
 
@@ -77,6 +94,11 @@ export async function initializeDatabase(): Promise<void> {
   const settingsCount = await db.settings.count();
   if (settingsCount === 0) {
     await db.settings.put({ ...DEFAULT_SETTINGS, key: 'settings' });
+  }
+
+  const vmCount = await db.variableManagers.count();
+  if (vmCount === 0) {
+    await db.variableManagers.put(createDefaultVarManager());
   }
 }
 
@@ -186,3 +208,16 @@ export async function setVariables(chatId: string, variables: Record<string, any
   chat.updatedAt = Date.now();
   await db.chats.put(chat);
 }
+
+// ============================================================
+// Variable Manager CRUD
+// ============================================================
+
+export async function getVariableManager(): Promise<VarManagerState | undefined> {
+  return getDatabase().variableManagers.get('default');
+}
+
+export async function saveVariableManager(state: VarManagerState): Promise<void> {
+  await getDatabase().variableManagers.put({ ...state, key: 'default' });
+}
+
