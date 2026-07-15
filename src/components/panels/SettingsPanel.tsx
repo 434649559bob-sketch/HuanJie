@@ -585,34 +585,6 @@ export default function SettingsPanel() {
                     )}
                   </label>
 
-                  <label className="sp-field">
-                    <span className="sp-label">Temperature</span>
-                    <input
-                      className="sp-input"
-                      type="number"
-                      min={0}
-                      max={2}
-                      step={0.1}
-                      value={settings.api.secondary?.temperature ?? 0.3}
-                      onChange={(e) => updateSecondary({ temperature: Number(e.target.value) })}
-                    />
-                    <span className="sp-hint">次 API 建议用较低温度 (0.1-0.4)，保证变量提取的稳定性</span>
-                  </label>
-
-                  <label className="sp-field">
-                    <span className="sp-label">Max Tokens</span>
-                    <input
-                      className="sp-input"
-                      type="number"
-                      min={64}
-                      max={4096}
-                      step={64}
-                      value={settings.api.secondary?.maxTokens ?? 512}
-                      onChange={(e) => updateSecondary({ maxTokens: Number(e.target.value) })}
-                    />
-                    <span className="sp-hint">变量和总结不需要太多 token，512 通常够了</span>
-                  </label>
-
                   <div className="sp-action-row">
                     <button
                       className="sp-btn sp-btn--test"
