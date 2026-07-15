@@ -305,6 +305,25 @@
   transform: scale(0.97);
 }
 
+.cp-quick-btn--fn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  border-color: var(--border-default);
+}
+
+.cp-quick-btn--fn:hover:not(:disabled) {
+  color: var(--accent-400);
+  border-color: rgba(0,212,255,0.3);
+}
+
+.cp-quick-btn--fn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
 /* Input Row */
 .cp-input-row {
   display: flex;

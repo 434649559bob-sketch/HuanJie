@@ -89,11 +89,6 @@ export default function CenterPanel({ isInGame, actionLog, onClearActionLog }: C
     }
   }, [handleSend]);
 
-  const handleActionClick = useCallback((action: string) => {
-    setInput(action);
-    inputRef.current?.focus();
-  }, []);
-
   // Render a single message
   const renderMessage = (msg: (typeof displayMessages)[number]) => {
     const isUser = msg.role === 'user';
@@ -218,17 +213,26 @@ export default function CenterPanel({ isInGame, actionLog, onClearActionLog }: C
           )}
         </div>
 
-        {/* Quick Actions */}
+        {/* Function Buttons */}
         <div className="cp-quick-actions">
-          {['查看周围', '打开背包', '使用技能', '休息恢复'].map(action => (
-            <button
-              key={action}
-              className="cp-quick-btn"
-              onClick={() => handleActionClick(action)}
-            >
-              {action}
-            </button>
-          ))}
+          <button
+            className="cp-quick-btn cp-quick-btn--fn"
+            onClick={() => st.regenerateLast()}
+            disabled={st.streamState.isStreaming || displayMessages.length < 2}
+            title="删除上一轮AI回复，用同样的输入重新生成"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><polyline points="1,4 1,10 7,10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+            重新生成
+          </button>
+          <button
+            className="cp-quick-btn cp-quick-btn--fn"
+            onClick={async () => { await st.createChat('新冒险'); }}
+            disabled={st.streamState.isStreaming}
+            title="创建新的对话会话"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            新对话
+          </button>
         </div>
 
         {/* Input Row */}
