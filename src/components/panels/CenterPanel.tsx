@@ -103,7 +103,9 @@ export default function CenterPanel({ isInGame, actionLog, onClearActionLog }: C
     const replacedText = runMacroPipeline(rawMaintext, vars, defsMap).text;
 
     // Step 2: Apply display-side regexes (may produce HTML)
-    const allRegexes = collectRegexes(st.settings?.globalRegexes ?? [], st.activePreset?.regexes ?? []);
+    // Check if user disabled regex via localStorage flag
+    const regexDisabled = (window as any).__DISABLE_REGEX__;
+    const allRegexes = regexDisabled ? [] : collectRegexes(st.settings?.globalRegexes ?? [], st.activePreset?.regexes ?? []);
     const displayHtml = applyRegexes(allRegexes, replacedText, 'display');
 
     return (

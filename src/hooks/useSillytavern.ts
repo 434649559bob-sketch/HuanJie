@@ -369,7 +369,8 @@ export function useSillytavern() {
       });
 
       // Apply prompt-side regexes (global + preset) to all messages
-      const allRegexes = collectRegexes(latestSettings.globalRegexes, effectivePreset?.regexes ?? []);
+      const regexDisabled = (window as any).__DISABLE_REGEX__;
+      const allRegexes = regexDisabled ? [] : collectRegexes(latestSettings.globalRegexes, effectivePreset?.regexes ?? []);
       const regexedMessages = messages.map(m => ({
         ...m,
         content: applyRegexes(allRegexes, m.content, 'prompt'),
